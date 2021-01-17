@@ -1,4 +1,5 @@
 local mp = require 'mp'
+local msg = require 'mp.msg'
 local utils = require 'mp.utils'
 local options = require 'mp.options'
 
@@ -19,8 +20,16 @@ options.read_options(opts, "user_input")
 
 local input = {
     request_text = "",
-    style = ""
+    style = "",
+    response_string = "",
+    passthrough = {}
 }
+
+local line = ''
+
+local function send_response()
+    mp.commandv("script-message", input.response_string, line, table.unpack(input.passthrough))
+end
 
 
 
@@ -30,7 +39,8 @@ local input = {
 
     Modifications:
         Removed support for log messages, sending commands, tab complete, help commands
-        
+        Changed enter key to call the send_response function
+
 ]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
@@ -81,7 +91,6 @@ end
 local repl_active = false
 local insert_mode = false
 local pending_update = false
-local line = ''
 local cursor = 1
 local key_bindings = {}
 local global_margin_y = 0
@@ -193,13 +202,12 @@ function set_active(active)
     if active then
         repl_active = true
         insert_mode = false
-        mp.enable_key_bindings('console-input', 'allow-hide-cursor+allow-vo-dragging')
-        mp.enable_messages('terminal-default')
         define_key_bindings()
     else
+        send_response()
+        clear()
         repl_active = false
         undefine_key_bindings()
-        mp.enable_messages('silent:terminal-default')
         collectgarbage()
     end
     update()
@@ -281,17 +289,6 @@ function maybe_exit()
     if line == '' then
         set_active(false)
     end
-end
-
--- Run the current command and clear the line (Enter)
-function handle_enter()
-    if line == '' then
-        return
-    end
-
-    -- NEW CODE HERE
-
-    clear()
 end
 
 -- Move to the start of the current word, or if already at the start, the start
@@ -417,33 +414,33 @@ end
 -- bindings and readline bindings.
 function get_bindings()
     local bindings = {
-        { 'esc',         function() set_active(false) end       },
-        { 'enter',       handle_enter                           },
-        { 'kp_enter',    handle_enter                           },
-        { 'shift+enter', function() handle_char_input('\n') end },
-        { 'bs',          handle_backspace                       },
-        { 'shift+bs',    handle_backspace                       },
-        { 'del',         handle_del                             },
-        { 'shift+del',   handle_del                             },
-        { 'ins',         handle_ins                             },
-        { 'shift+ins',   function() paste(false) end            },
-        { 'mbtn_mid',    function() paste(false) end            },
-        { 'left',        function() prev_char() end             },
-        { 'right',       function() next_char() end             },
-        { 'wheel_left',  function() end                         },
-        { 'wheel_right', function() end                         },
-        { 'ctrl+left',   prev_word                              },
-        { 'ctrl+right',  next_word                              },
-        { 'home',        go_home                                },
-        { 'end',         go_end                                 },
-        { 'ctrl+c',      clear                                  },
-        { 'ctrl+d',      maybe_exit                             },
-        { 'ctrl+k',      del_to_eol                             },
-        { 'ctrl+u',      del_to_start                           },
-        { 'ctrl+v',      function() paste(true) end             },
-        { 'meta+v',      function() paste(true) end             },
-        { 'ctrl+w',      del_word                               },
-        { 'kp_dec',      function() handle_char_input('.') end  },
+        { 'esc',         function() clear(); set_active(false) end  },
+        { 'enter',       function() set_active(false) end           },
+        { 'kp_enter',    function() set_active(false) end           },
+        { 'shift+enter', function() handle_char_input('\n') end     },
+        { 'bs',          handle_backspace                           },
+        { 'shift+bs',    handle_backspace                           },
+        { 'del',         handle_del                                 },
+        { 'shift+del',   handle_del                                 },
+        { 'ins',         handle_ins                                 },
+        { 'shift+ins',   function() paste(false) end                },
+        { 'mbtn_mid',    function() paste(false) end                },
+        { 'left',        function() prev_char() end                 },
+        { 'right',       function() next_char() end                 },
+        { 'wheel_left',  function() end                             },
+        { 'wheel_right', function() end                             },
+        { 'ctrl+left',   prev_word                                  },
+        { 'ctrl+right',  next_word                                  },
+        { 'home',        go_home                                    },
+        { 'end',         go_end                                     },
+        { 'ctrl+c',      clear                                      },
+        { 'ctrl+d',      maybe_exit                                 },
+        { 'ctrl+k',      del_to_eol                                 },
+        { 'ctrl+u',      del_to_start                               },
+        { 'ctrl+v',      function() paste(true) end                 },
+        { 'meta+v',      function() paste(true) end                 },
+        { 'ctrl+w',      del_word                                   },
+        { 'kp_dec',      function() handle_char_input('.') end      },
     }
 
     for i = 0, 9 do
@@ -494,6 +491,16 @@ mp.observe_property('display-hidpi-scale', 'native', update)
 ----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
 -------------------------------END ORIGINAL MPV CODE------------------------------------
+
+mp.register_script_message("request-user-input", function(request, response)
+    if not response then msg.error("input requests require a response string") ; return end
+    local req = request and utils.parse_json(request) or {}
+
+    input.request_text = req.ass or ass_escape(req.text or "")
+    input.passthrough = req.passthrough
+    input.response_string = response
+    set_active(true)
+end)
 
 --temporary keybind for debugging purposes
 mp.add_key_binding("Ctrl+i", "user-input", function() set_active(true) end)
