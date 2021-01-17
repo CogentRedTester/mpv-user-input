@@ -27,8 +27,9 @@ local input = {
 
 local line = ''
 
-local function send_response()
-    mp.commandv("script-message", input.response_string, line, table.unpack(input.passthrough))
+local function send_response(line)
+    if line then mp.commandv("script-message", input.response_string, line)
+    else mp.commandv("script-message", input.response_string) end
 end
 
 
@@ -204,7 +205,6 @@ function set_active(active)
         insert_mode = false
         define_key_bindings()
     else
-        send_response()
         clear()
         repl_active = false
         undefine_key_bindings()
@@ -289,6 +289,17 @@ function maybe_exit()
     if line == '' then
         set_active(false)
     end
+end
+
+local function handle_esc()
+    send_response()
+    set_active(false)
+end
+
+-- Run the current command and clear the line (Enter)
+function handle_enter()
+    send_response(line)
+    set_active(false)
 end
 
 -- Move to the start of the current word, or if already at the start, the start
@@ -414,9 +425,9 @@ end
 -- bindings and readline bindings.
 function get_bindings()
     local bindings = {
-        { 'esc',         function() clear(); set_active(false) end  },
-        { 'enter',       function() set_active(false) end           },
-        { 'kp_enter',    function() set_active(false) end           },
+        { 'esc',         handle_esc                                 },
+        { 'enter',       handle_enter                               },
+        { 'kp_enter',    handle_enter                               },
         { 'shift+enter', function() handle_char_input('\n') end     },
         { 'bs',          handle_backspace                           },
         { 'shift+bs',    handle_backspace                           },
@@ -497,7 +508,6 @@ mp.register_script_message("request-user-input", function(request, response)
     local req = utils.parse_json(request) or {}
 
     input.request_text = req.ass or ass_escape(req.text or "")
-    input.passthrough = req.passthrough or {}
     input.response_string = response
     set_active(true)
 end)
