@@ -1,9 +1,36 @@
+local mp = require 'mp'
+local utils = require 'mp.utils'
+local options = require 'mp.options'
+
+-- Default options
+local opts = {
+    -- All drawing is scaled by this value, including the text borders and the
+    -- cursor. Change it if you have a high-DPI display.
+    scale = 1,
+    -- Set the font used for the REPL and the console. This probably doesn't
+    -- have to be a monospaced font.
+    font = "",
+    -- Set the font size used for the REPL and the console. This will be
+    -- multiplied by "scale."
+    font_size = 16,
+}
+
+options.read_options(opts, "user_input")
+
+local input = {
+    request_text = "",
+    style = ""
+}
+
+
+
 --[[
     The below code is a modified implementation of text input from mpv's console.lua:
     https://github.com/mpv-player/mpv/blob/7ca14d646c7e405f3fb1e44600e2a67fc4607238/player/lua/console.lua
 
     Modifications:
         Removed support for log messages, sending commands, tab complete, help commands
+        
 ]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
@@ -26,22 +53,7 @@
 -- OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 -- CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-local utils = require 'mp.utils'
-local options = require 'mp.options'
 local assdraw = require 'mp.assdraw'
-
--- Default options
-local opts = {
-    -- All drawing is scaled by this value, including the text borders and the
-    -- cursor. Change it if you have a high-DPI display.
-    scale = 1,
-    -- Set the font used for the REPL and the console. This probably doesn't
-    -- have to be a monospaced font.
-    font = "",
-    -- Set the font size used for the REPL and the console. This will be
-    -- multiplied by "scale."
-    font_size = 16,
-}
 
 function detect_platform()
     local o = {}
@@ -66,17 +78,11 @@ else
     opts.font = 'monospace'
 end
 
--- Apply user-set options
-options.read_options(opts)
-
 local repl_active = false
 local insert_mode = false
 local pending_update = false
 local line = ''
 local cursor = 1
-local history = {}
-local history_pos = 1
-local log_buffer = {}
 local key_bindings = {}
 local global_margin_y = 0
 
@@ -161,22 +167,10 @@ function update()
     local before_cur = ass_escape(line:sub(1, cursor - 1))
     local after_cur = ass_escape(line:sub(cursor))
 
-    -- Render log messages as ASS. This will render at most screeny / font_size
-    -- messages.
-    local log_ass = ''
-    local log_messages = #log_buffer
-    local log_max_lines = math.ceil(screeny / opts.font_size)
-    if log_max_lines < log_messages then
-        log_messages = log_max_lines
-    end
-    for i = #log_buffer - log_messages + 1, #log_buffer do
-        log_ass = log_ass .. style .. log_buffer[i].style .. ass_escape(log_buffer[i].text)
-    end
-
     ass:new_event()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
-    ass:append(log_ass .. '\\N')
+    ass:append(input.request_text .. '\\N')
     ass:append(style .. '> ' .. before_cur)
     ass:append(cglyph)
     ass:append(style .. after_cur)
@@ -279,7 +273,6 @@ function clear()
     line = ''
     cursor = 1
     insert_mode = false
-    history_pos = #history + 1
     update()
 end
 
