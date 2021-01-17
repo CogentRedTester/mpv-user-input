@@ -1,9 +1,15 @@
+--[[
+    The below code is a modified implementation of text input from mpv's console.lua:
+    https://github.com/mpv-player/mpv/blob/7ca14d646c7e405f3fb1e44600e2a67fc4607238/player/lua/console.lua
+
+    Modifications:
+        Removed support for log messages, sending commands, tab complete, help commands
+]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
 ----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
--- Code taken from: https://github.com/mpv-player/mpv/blob/7ca14d646c7e405f3fb1e44600e2a67fc4607238/player/lua/console.lua
 ----------------------------------------------------------------------------------------
 
 -- Copyright (C) 2019 the mpv developers
@@ -98,23 +104,6 @@ utils.shared_script_property_observe("osc-margins", function(_, val)
     end
     update()
 end)
-
--- Add a line to the log buffer (which is limited to 100 lines)
-function log_add(style, text)
-    log_buffer[#log_buffer + 1] = { style = style, text = text }
-    if #log_buffer > 100 then
-        table.remove(log_buffer, 1)
-    end
-
-    if repl_active then
-        if not update_timer:is_enabled() then
-            update()
-            update_timer:resume()
-        else
-            pending_update = true
-        end
-    end
-end
 
 -- Escape a string for verbatim display on the OSD
 function ass_escape(str)
@@ -222,33 +211,6 @@ function set_active(active)
     update()
 end
 
--- Show the repl if hidden and replace its contents with 'text'
--- (script-message-to repl type)
-function show_and_type(text, cursor_pos)
-    text = text or ''
-    cursor_pos = tonumber(cursor_pos)
-
-    -- Save the line currently being edited, just in case
-    if line ~= text and line ~= '' and history[#history] ~= line then
-        history[#history + 1] = line
-    end
-
-    line = text
-    if cursor_pos ~= nil and cursor_pos >= 1
-       and cursor_pos <= line:len() + 1 then
-        cursor = math.floor(cursor_pos)
-    else
-        cursor = line:len() + 1
-    end
-    history_pos = #history + 1
-    insert_mode = false
-    if repl_active then
-        update()
-    else
-        set_active(true)
-    end
-end
-
 -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
 -- by skipping continuation bytes. Assumes 'str' contains valid UTF-8.
 function next_utf8(str, pos)
@@ -328,116 +290,15 @@ function maybe_exit()
     end
 end
 
-function help_command(param)
-    local cmdlist = mp.get_property_native('command-list')
-    local error_style = '{\\1c&H7a77f2&}'
-    local output = ''
-    if param == '' then
-        output = 'Available commands:\n'
-        for _, cmd in ipairs(cmdlist) do
-            output = output  .. '  ' .. cmd.name
-        end
-        output = output .. '\n'
-        output = output .. 'Use "help command" to show information about a command.\n'
-        output = output .. "ESC or Ctrl+d exits the console.\n"
-    else
-        local cmd = nil
-        for _, curcmd in ipairs(cmdlist) do
-            if curcmd.name:find(param, 1, true) then
-                cmd = curcmd
-                if curcmd.name == param then
-                    break -- exact match
-                end
-            end
-        end
-        if not cmd then
-            log_add(error_style, 'No command matches "' .. param .. '"!')
-            return
-        end
-        output = output .. 'Command "' .. cmd.name .. '"\n'
-        for _, arg in ipairs(cmd.args) do
-            output = output .. '    ' .. arg.name .. ' (' .. arg.type .. ')'
-            if arg.optional then
-                output = output .. ' (optional)'
-            end
-            output = output .. '\n'
-        end
-        if cmd.vararg then
-            output = output .. 'This command supports variable arguments.\n'
-        end
-    end
-    log_add('', output)
-end
-
 -- Run the current command and clear the line (Enter)
 function handle_enter()
     if line == '' then
         return
     end
-    if history[#history] ~= line then
-        history[#history + 1] = line
-    end
 
-    -- match "help [<text>]", return <text> or "", strip all whitespace
-    local help = line:match('^%s*help%s+(.-)%s*$') or
-                 (line:match('^%s*help$') and '')
-    if help then
-        help_command(help)
-    else
-        mp.command(line)
-    end
+    -- NEW CODE HERE
 
     clear()
-end
-
--- Go to the specified position in the command history
-function go_history(new_pos)
-    local old_pos = history_pos
-    history_pos = new_pos
-
-    -- Restrict the position to a legal value
-    if history_pos > #history + 1 then
-        history_pos = #history + 1
-    elseif history_pos < 1 then
-        history_pos = 1
-    end
-
-    -- Do nothing if the history position didn't actually change
-    if history_pos == old_pos then
-        return
-    end
-
-    -- If the user was editing a non-history line, save it as the last history
-    -- entry. This makes it much less frustrating to accidentally hit Up/Down
-    -- while editing a line.
-    if old_pos == #history + 1 and line ~= '' and history[#history] ~= line then
-        history[#history + 1] = line
-    end
-
-    -- Now show the history line (or a blank line for #history + 1)
-    if history_pos <= #history then
-        line = history[history_pos]
-    else
-        line = ''
-    end
-    cursor = line:len() + 1
-    insert_mode = false
-    update()
-end
-
--- Go to the specified relative position in the command history (Up, Down)
-function move_history(amount)
-    go_history(history_pos + amount)
-end
-
--- Go to the first command in the command history (PgUp)
-function handle_pgup()
-    go_history(1)
-end
-
--- Stop browsing history and start editing a blank line (PgDown)
-function handle_pgdown()
-    go_history(#history + 1)
 end
 
 -- Move to the start of the current word, or if already at the start, the start
@@ -455,116 +316,6 @@ end
 function next_word()
     cursor = select(2, line:find('%s*[^%s]*', cursor)) + 1
     update()
-end
-
--- List of tab-completions:
---   pattern: A Lua pattern used in string:find. Should return the start and
---            end positions of the word to be completed in the first and second
---            capture groups (using the empty parenthesis notation "()")
---   list: A list of candidate completion values.
---   append: An extra string to be appended to the end of a successful
---           completion. It is only appended if 'list' contains exactly one
---           match.
-function build_completers()
-    -- Build a list of commands, properties and options for tab-completion
-    local option_info = {
-        'name', 'type', 'set-from-commandline', 'set-locally', 'default-value',
-        'min', 'max', 'choices',
-    }
-    local cmd_list = {}
-    for i, cmd in ipairs(mp.get_property_native('command-list')) do
-        cmd_list[i] = cmd.name
-    end
-    local prop_list = mp.get_property_native('property-list')
-    for _, opt in ipairs(mp.get_property_native('options')) do
-        prop_list[#prop_list + 1] = 'options/' .. opt
-        prop_list[#prop_list + 1] = 'file-local-options/' .. opt
-        prop_list[#prop_list + 1] = 'option-info/' .. opt
-        for _, p in ipairs(option_info) do
-            prop_list[#prop_list + 1] = 'option-info/' .. opt .. '/' .. p
-        end
-    end
-
-    return {
-        { pattern = '^%s*()[%w_-]+()$', list = cmd_list, append = ' ' },
-        { pattern = '^%s*set%s+()[%w_/-]+()$', list = prop_list, append = ' ' },
-        { pattern = '^%s*set%s+"()[%w_/-]+()$', list = prop_list, append = '" ' },
-        { pattern = '^%s*add%s+()[%w_/-]+()$', list = prop_list, append = ' ' },
-        { pattern = '^%s*add%s+"()[%w_/-]+()$', list = prop_list, append = '" ' },
-        { pattern = '^%s*cycle%s+()[%w_/-]+()$', list = prop_list, append = ' ' },
-        { pattern = '^%s*cycle%s+"()[%w_/-]+()$', list = prop_list, append = '" ' },
-        { pattern = '^%s*multiply%s+()[%w_/-]+()$', list = prop_list, append = ' ' },
-        { pattern = '^%s*multiply%s+"()[%w_/-]+()$', list = prop_list, append = '" ' },
-        { pattern = '${()[%w_/-]+()$', list = prop_list, append = '}' },
-    }
-end
-
--- Use 'list' to find possible tab-completions for 'part.' Returns the longest
--- common prefix of all the matching list items and a flag that indicates
--- whether the match was unique or not.
-function complete_match(part, list)
-    local completion = nil
-    local full_match = false
-
-    for _, candidate in ipairs(list) do
-        if candidate:sub(1, part:len()) == part then
-            if completion and completion ~= candidate then
-                local prefix_len = part:len()
-                while completion:sub(1, prefix_len + 1)
-                       == candidate:sub(1, prefix_len + 1) do
-                    prefix_len = prefix_len + 1
-                end
-                completion = candidate:sub(1, prefix_len)
-                full_match = false
-            else
-                completion = candidate
-                full_match = true
-            end
-        end
-    end
-
-    return completion, full_match
-end
-
--- Complete the option or property at the cursor (TAB)
-function complete()
-    local before_cur = line:sub(1, cursor - 1)
-    local after_cur = line:sub(cursor)
-
-    -- Try the first completer that works
-    for _, completer in ipairs(build_completers()) do
-        -- Completer patterns should return the start and end of the word to be
-        -- completed as the first and second capture groups
-        local _, _, s, e = before_cur:find(completer.pattern)
-        if not s then
-            -- Multiple input commands can be separated by semicolons, so all
-            -- completions that are anchored at the start of the string with
-            -- '^' can start from a semicolon as well. Replace ^ with ; and try
-            -- to match again.
-            _, _, s, e = before_cur:find(completer.pattern:gsub('^^', ';'))
-        end
-        if s then
-            -- If the completer's pattern found a word, check the completer's
-            -- list for possible completions
-            local part = before_cur:sub(s, e)
-            local c, full = complete_match(part, completer.list)
-            if c then
-                -- If there was only one full match from the list, add
-                -- completer.append to the final string. This is normally a
-                -- space or a quotation mark followed by a space.
-                if full and completer.append then
-                    c = c .. completer.append
-                end
-
-                -- Insert the completion and update
-                before_cur = before_cur:sub(1, s - 1) .. c
-                cursor = before_cur:len() + 1
-                line = before_cur .. after_cur
-                update()
-                return
-            end
-        end
-    end
 end
 
 -- Move the cursor to the beginning of the line (HOME)
@@ -600,12 +351,6 @@ end
 function del_to_start()
     line = line:sub(cursor)
     cursor = 1
-    update()
-end
-
--- Empty the log buffer of all messages (Ctrl+L)
-function clear_log_buffer()
-    log_buffer = {}
     update()
 end
 
@@ -692,23 +437,15 @@ function get_bindings()
         { 'mbtn_mid',    function() paste(false) end            },
         { 'left',        function() prev_char() end             },
         { 'right',       function() next_char() end             },
-        { 'up',          function() move_history(-1) end        },
-        { 'wheel_up',    function() move_history(-1) end        },
-        { 'down',        function() move_history(1) end         },
-        { 'wheel_down',  function() move_history(1) end         },
         { 'wheel_left',  function() end                         },
         { 'wheel_right', function() end                         },
         { 'ctrl+left',   prev_word                              },
         { 'ctrl+right',  next_word                              },
-        { 'tab',         complete                               },
         { 'home',        go_home                                },
         { 'end',         go_end                                 },
-        { 'pgup',        handle_pgup                            },
-        { 'pgdwn',       handle_pgdown                          },
         { 'ctrl+c',      clear                                  },
         { 'ctrl+d',      maybe_exit                             },
         { 'ctrl+k',      del_to_eol                             },
-        { 'ctrl+l',      clear_log_buffer                       },
         { 'ctrl+u',      del_to_start                           },
         { 'ctrl+v',      function() paste(true) end             },
         { 'meta+v',      function() paste(true) end             },
@@ -754,66 +491,16 @@ function undefine_key_bindings()
     key_bindings = {}
 end
 
--- Add a global binding for enabling the REPL. While it's enabled, its bindings
--- will take over and it can be closed with ESC.
-mp.add_key_binding(nil, 'enable', function()
-    set_active(true)
-end)
-
--- Add a script-message to show the REPL and fill it with the provided text
-mp.register_script_message('type', function(text, cursor_pos)
-    show_and_type(text, cursor_pos)
-end)
-
 -- Redraw the REPL when the OSD size changes. This is needed because the
 -- PlayRes of the OSD will need to be adjusted.
 mp.observe_property('osd-width', 'native', update)
 mp.observe_property('osd-height', 'native', update)
 mp.observe_property('display-hidpi-scale', 'native', update)
 
--- Enable log messages. In silent mode, mpv will queue log messages in a buffer
--- until enable_messages is called again without the silent: prefix.
-mp.enable_messages('silent:terminal-default')
-
-mp.register_event('log-message', function(e)
-    -- Ignore log messages from the OSD because of paranoia, since writing them
-    -- to the OSD could generate more messages in an infinite loop.
-    if e.prefix:sub(1, 3) == 'osd' then return end
-
-    -- Ignore messages output by this script.
-    if e.prefix == mp.get_script_name() then return end
-
-    -- Ignore buffer overflow warning messages. Overflowed log messages would
-    -- have been offscreen anyway.
-    if e.prefix == 'overflow' then return end
-
-    -- Filter out trace-level log messages, even if the terminal-default log
-    -- level includes them. These aren't too useful for an on-screen display
-    -- without scrollback and they include messages that are generated from the
-    -- OSD display itself.
-    if e.level == 'trace' then return end
-
-    -- Use color for debug/v/warn/error/fatal messages. Colors are stolen from
-    -- base16 Eighties by Chris Kempson.
-    local style = ''
-    if e.level == 'debug' then
-        style = '{\\1c&Ha09f93&}'
-    elseif e.level == 'v' then
-        style = '{\\1c&H99cc99&}'
-    elseif e.level == 'warn' then
-        style = '{\\1c&H66ccff&}'
-    elseif e.level == 'error' then
-        style = '{\\1c&H7a77f2&}'
-    elseif e.level == 'fatal' then
-        style = '{\\1c&H5791f9&\\b1}'
-    end
-
-    log_add(style, '[' .. e.prefix .. '] ' .. e.text)
-end)
-
-collectgarbage()
-
 ----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
 -------------------------------END ORIGINAL MPV CODE------------------------------------
+
+--temporary keybind for debugging purposes
+mp.add_key_binding("Ctrl+i", "user-input", function() set_active(true) end)
