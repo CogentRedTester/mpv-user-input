@@ -25,7 +25,7 @@ local function get_user_input(funct, options, ...)
         funct(response, ...)
     end)
 
-    mp.commandv("script-message-to", "user_input", "request-user-input", options, response_string)
+    mp.commandv("script-message-to", "user_input", "request-user-input", options or "", response_string)
 end
 
 return get_user_input

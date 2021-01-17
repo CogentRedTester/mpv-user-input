@@ -494,10 +494,10 @@ mp.observe_property('display-hidpi-scale', 'native', update)
 
 mp.register_script_message("request-user-input", function(request, response)
     if not response then msg.error("input requests require a response string") ; return end
-    local req = request and utils.parse_json(request) or {}
+    local req = utils.parse_json(request) or {}
 
     input.request_text = req.ass or ass_escape(req.text or "")
-    input.passthrough = req.passthrough
+    input.passthrough = req.passthrough or {}
     input.response_string = response
     set_active(true)
 end)
