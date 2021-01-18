@@ -14,6 +14,7 @@ local function get_user_input(funct, options)
     local name = mp.get_script_name()
     options = options or {}
     options.id = options.id or name
+    if type(options.id) ~= "string" then error("id must be a string") end
     options.text = options.text or (name.." is requesting user input:")
 
     local response_string = name.."/__user_input_request/"..counter
@@ -33,4 +34,10 @@ local function get_user_input(funct, options)
     mp.commandv("script-message-to", "user_input", "request-user-input", options)
 end
 
-return get_user_input
+local function cancel_user_input(id)
+    if not id then id = mp.get_script_name() end
+    if type(id) ~= "string" then error("must provide a string id") end
+    mp.commandv("script-message-to", "user_input", "cancel-user-input", id)
+end
+
+return { get_user_input = get_user_input, cancel_user_input = cancel_user_input}

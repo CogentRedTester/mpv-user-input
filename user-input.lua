@@ -31,9 +31,10 @@ local line = ''
     sends a response to the original script in the form of a json string
     it is expected that all requests get a response, if the input is nil then err should say why
     current error codes are:
-        cancelled       the user closed the input instead of pressing Enter
+        exitted        the user closed the input instead of pressing Enter
         already_queued  a request with the specified id was already in the queue
         replaced        the request was replaced with a newer request
+        cancelled       a script cancelled the request
 ]]--
 local function send_response(send_line, err, override_response)
     local response = utils.format_json({input = send_line and line or nil, err = err})
@@ -256,13 +257,13 @@ end
 -- Close the REPL if the current line is empty, otherwise do nothing (Ctrl+D)
 local function maybe_exit()
     if line == '' then
-        send_response(false, "cancelled")
+        send_response(false, "exitted")
         queue:pop()
     end
 end
 
 local function handle_esc()
-    send_response(false, "cancelled")
+    send_response(false, "exitted")
     queue:pop()
 end
 
@@ -615,6 +616,20 @@ end
 function queue:stop_queue()
     set_active(false)
 end
+
+-- removes all requests with the specified id from the queue
+mp.register_script_message("cancel-user-input", function(id)
+    for i = 2, #queue.queue do
+        if queue.queue[i].id == id then
+            send_response(false, "cancelled", queue.queue[i].response)
+            table.remove(queue.queue, i)
+        end
+    end
+    if queue.queue[1].id == id then
+        send_response(false, "cancelled")
+        queue:pop()
+    end
+end)
 
 -- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
 -- requests are recieved as json objects
