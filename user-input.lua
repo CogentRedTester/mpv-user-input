@@ -27,8 +27,8 @@ local input = {
 
 local line = ''
 
-local function send_response(line)
-    if line then mp.commandv("script-message", input.response_string, line)
+local function send_response(send_line)
+    if send_line then mp.commandv("script-message", input.response_string, line)
     else mp.commandv("script-message", input.response_string) end
 end
 
@@ -40,8 +40,8 @@ end
 
     Modifications:
         Removed support for log messages, sending commands, tab complete, help commands
-        Changed enter key to call the send_response function
-
+        Changed esc key to call handle_esc function
+        handle_esc and handle_enter now call the send_response() function
 ]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
@@ -180,7 +180,7 @@ function update()
     ass:new_event()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
-    ass:append(input.request_text .. '\\N')
+    ass:append(style .. input.request_text .. '\\N')
     ass:append(style .. '> ' .. before_cur)
     ass:append(cglyph)
     ass:append(style .. after_cur)
@@ -292,13 +292,13 @@ function maybe_exit()
 end
 
 local function handle_esc()
-    send_response()
+    send_response(false)
     set_active(false)
 end
 
 -- Run the current command and clear the line (Enter)
 function handle_enter()
-    send_response(line)
+    send_response(true)
     set_active(false)
 end
 
