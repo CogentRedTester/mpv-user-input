@@ -23,7 +23,6 @@ local function get_user_input(funct, options)
     if not options then error("table cannot be converted to json string") ; return end
 
     -- create a callback for user-input to respond to
-    local response_string = name.."/__user_input_request/"..counter
     counter = counter + 1
     mp.register_script_message(response_string, function(response)
         mp.unregister_script_message(response_string)
