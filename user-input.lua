@@ -625,7 +625,7 @@ mp.register_script_message("cancel-user-input", function(id)
             table.remove(queue.queue, i)
         end
     end
-    if queue.queue[1].id == id then
+    if queue.queue[1] and queue.queue[1].id == id then
         send_response(false, "cancelled")
         queue:pop()
     end
