@@ -27,10 +27,10 @@ local request = nil
 
 local line = ''
 
-local function send_response(send_line)
-    if send_line then mp.commandv("script-message", request.response, line)
-    else mp.commandv("script-message", request.response) end
-    queue:pop()
+local function send_response(send_line, err)
+    local response = utils.format_json({input = send_line and line or nil, err = err})
+    if not response then error("could not format json response") end
+    mp.commandv("script-message", request.response, response)
 end
 
 
@@ -294,7 +294,8 @@ function maybe_exit()
 end
 
 local function handle_esc()
-    send_response(false)
+    send_response(false, "cancelled")
+    queue:pop()
 end
 
 -- Run the current command and clear the line (Enter)
@@ -303,6 +304,7 @@ function handle_enter()
         request.history.list[#request.history.list + 1] = line
     end
     send_response(true)
+    queue:pop()
 end
 
 -- Go to the specified position in the command history
@@ -566,7 +568,7 @@ mp.observe_property('display-hidpi-scale', 'native', update)
 -- if a request with the same id already exists and the queueable flag is not enabled then
 -- a nil result will be returned to the function
 function queue:push(req)
-    if self.active_ids[req.id] and not req.queueable then mp.commandv("script-message", req.response) ; return end
+    if self.active_ids[req.id] and not req.queueable then send_response(false, "already_queued") ; return end
 
     table.insert(self.queue, req)
     self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1

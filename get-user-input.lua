@@ -26,7 +26,8 @@ local function get_user_input(funct, options)
     counter = counter + 1
     mp.register_script_message(response_string, function(response)
         mp.unregister_script_message(response_string)
-        funct(response)
+        response = utils.parse_json(response)
+        funct(response.input, response.err)
     end)
 
     mp.commandv("script-message-to", "user_input", "request-user-input", options)
