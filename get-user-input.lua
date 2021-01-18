@@ -16,6 +16,9 @@ local function get_user_input(funct, options)
     options.id = options.id or name
     options.text = options.text or (name.." is requesting user input:")
 
+    local response_string = name.."/__user_input_request/"..counter
+    options.response = response_string
+
     options = utils.format_json(options)
     if not options then error("table cannot be converted to json string") ; return end
 
@@ -27,7 +30,6 @@ local function get_user_input(funct, options)
         funct(response)
     end)
 
-    options.response = response_string
     mp.commandv("script-message-to", "user_input", "request-user-input", options)
 end
 
