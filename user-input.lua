@@ -18,20 +18,20 @@ local opts = {
 
 options.read_options(opts, "user_input")
 
-local input = {
-    request_text = "",
-    style = "",
-    response_string = "",
-    passthrough = {}
+local queue = {
+    queue = {},
+    active_ids = {}
 }
+local histories = {}
+local request = nil
 
 local line = ''
 
 local function send_response(send_line)
-    if send_line then mp.commandv("script-message", input.response_string, line)
-    else mp.commandv("script-message", input.response_string) end
+    if send_line then mp.commandv("script-message", request.response, line)
+    else mp.commandv("script-message", request.response) end
+    queue:pop()
 end
-
 
 
 --[[
@@ -42,6 +42,7 @@ end
         Removed support for log messages, sending commands, tab complete, help commands
         Changed esc key to call handle_esc function
         handle_esc and handle_enter now call the send_response() function
+        Made history specific to request ids
 ]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
@@ -180,7 +181,7 @@ function update()
     ass:new_event()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
-    ass:append(style .. input.request_text .. '\\N')
+    ass:append(style .. request.ass .. '\\N')
     ass:append(style .. '> ' .. before_cur)
     ass:append(cglyph)
     ass:append(style .. after_cur)
@@ -281,6 +282,7 @@ function clear()
     line = ''
     cursor = 1
     insert_mode = false
+    request.history.pos = #request.history.list + 1
     update()
 end
 
@@ -293,13 +295,64 @@ end
 
 local function handle_esc()
     send_response(false)
-    set_active(false)
 end
 
 -- Run the current command and clear the line (Enter)
 function handle_enter()
+    if request.history.list[#request.history.list] ~= line and line ~= "" then
+        request.history.list[#request.history.list + 1] = line
+    end
     send_response(true)
-    set_active(false)
+end
+
+-- Go to the specified position in the command history
+function go_history(new_pos)
+    local old_pos = request.history.pos
+    request.history.pos = new_pos
+
+    -- Restrict the position to a legal value
+    if request.history.pos > #request.history.list + 1 then
+        request.history.pos = #request.history.list + 1
+    elseif request.history.pos < 1 then
+        request.history.pos = 1
+    end
+
+    -- Do nothing if the history position didn't actually change
+    if request.history.pos == old_pos then
+        return
+    end
+
+    -- If the user was editing a non-history line, save it as the last history
+    -- entry. This makes it much less frustrating to accidentally hit Up/Down
+    -- while editing a line.
+    if old_pos == #request.history.list + 1 and line ~= '' and request.history.list[#request.history.list] ~= line then
+        request.history.list[#request.history.list + 1] = line
+    end
+
+    -- Now show the history line (or a blank line for #history + 1)
+    if request.history.pos <= #request.history.list then
+        line = request.history.list[request.history.pos]
+    else
+        line = ''
+    end
+    cursor = line:len() + 1
+    insert_mode = false
+    update()
+end
+
+-- Go to the specified relative position in the command history (Up, Down)
+function move_history(amount)
+    go_history(request.history.pos + amount)
+end
+
+-- Go to the first command in the command history (PgUp)
+function handle_pgup()
+    go_history(1)
+end
+
+-- Stop browsing history and start editing a blank line (PgDown)
+function handle_pgdown()
+    go_history(#request.history.list + 1)
 end
 
 -- Move to the start of the current word, or if already at the start, the start
@@ -438,12 +491,18 @@ function get_bindings()
         { 'mbtn_mid',    function() paste(false) end                },
         { 'left',        function() prev_char() end                 },
         { 'right',       function() next_char() end                 },
+        { 'up',          function() move_history(-1) end            },
+        { 'wheel_up',    function() move_history(-1) end            },
+        { 'down',        function() move_history(1) end             },
+        { 'wheel_down',  function() move_history(1) end             },
         { 'wheel_left',  function() end                             },
         { 'wheel_right', function() end                             },
         { 'ctrl+left',   prev_word                                  },
         { 'ctrl+right',  next_word                                  },
         { 'home',        go_home                                    },
         { 'end',         go_end                                     },
+        { 'pgup',        handle_pgup                                },
+        { 'pgdwn',       handle_pgdown                              },
         { 'ctrl+c',      clear                                      },
         { 'ctrl+d',      maybe_exit                                 },
         { 'ctrl+k',      del_to_eol                                 },
@@ -503,13 +562,55 @@ mp.observe_property('display-hidpi-scale', 'native', update)
 ----------------------------------------------------------------------------------------
 -------------------------------END ORIGINAL MPV CODE------------------------------------
 
-mp.register_script_message("request-user-input", function(request, response)
-    if not response then msg.error("input requests require a response string") ; return end
+-- push new request onto the queue
+-- if a request with the same id already exists and the queueable flag is not enabled then
+-- a nil result will be returned to the function
+function queue:push(req)
+    if self.active_ids[req.id] and not req.queueable then mp.commandv("script-message", req.response) ; return end
+
+    table.insert(self.queue, req)
+    self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1
+    if #self.queue == 1 then self:start_queue() end
+end
+
+-- removes the first item in the queue and either continues or stops the queue
+function queue:pop()
+    local front = table.remove(self.queue, 1)
+
+    clear()
+    self.active_ids[front.id] = self.active_ids[front.id] ~= 1 and self.active_ids[front.id] - 1 or nil
+
+    if #self.queue < 1 then self:stop_queue()
+    else self:continue_queue() end
+end
+
+function queue:start_queue()
+    request = self.queue[1]
+    set_active(true)
+end
+
+function queue:continue_queue()
+    request = self.queue[1]
+    update()
+end
+
+function queue:stop_queue()
+    set_active(false)
+end
+
+-- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
+-- requests are recieved as json objects
+mp.register_script_message("request-user-input", function(request)
     local req = utils.parse_json(request) or {}
 
-    input.request_text = req.ass or ass_escape(req.text or "")
-    input.response_string = response
-    set_active(true)
+    if not req.response then msg.error("input requests require a response string") ; return end
+    req.ass = req.ass or ass_escape(req.text or "")
+    req.id = req.id or "mpv"
+
+    if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
+    req.history = histories[req.id]
+
+    queue:push(req)
 end)
 
 --temporary keybind for debugging purposes
