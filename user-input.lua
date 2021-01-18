@@ -27,10 +27,10 @@ local request = nil
 
 local line = ''
 
-local function send_response(send_line, err)
+local function send_response(send_line, err, override_response)
     local response = utils.format_json({input = send_line and line or nil, err = err})
     if not response then error("could not format json response") end
-    mp.commandv("script-message", request.response, response)
+    mp.commandv("script-message", override_response or request.response, response)
 end
 
 
@@ -568,7 +568,23 @@ mp.observe_property('display-hidpi-scale', 'native', update)
 -- if a request with the same id already exists and the queueable flag is not enabled then
 -- a nil result will be returned to the function
 function queue:push(req)
-    if self.active_ids[req.id] and not req.queueable then send_response(false, "already_queued") ; return end
+    if self.active_ids[req.id] then
+
+        -- replace an existing request with the new one
+        if req.replace then
+            for i = 1, #self.queue do
+                if self.queue[i].id == req.id then
+                    send_response(false, "replaced", self.queue[i].response)
+                    self.queue[i] = req
+                    if i == 1 then request = req ; update() end
+                    return
+                end
+            end
+        end
+
+        --cancel the new request if it is not queueable
+        if not req.queueable then send_response(false, "already_queued") ; return end
+    end
 
     table.insert(self.queue, req)
     self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1
