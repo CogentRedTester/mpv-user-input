@@ -34,7 +34,8 @@ The following options are currently available:
     queueable   allow request if another request with the same id is already queued
     replace     replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable
 
-Beware that ids are currently shared between scripts, so choose them wisely.
+The function prepends the script name to any id to avoid conflicts, but the actual script has no way to determining where the requests come from,
+so make sure that the function is used.
 
 Also note that the `queueable` and `replace` flags apply to the incoming requests, not requests that already exist in the queue.
 
