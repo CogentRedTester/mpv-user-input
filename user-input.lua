@@ -27,6 +27,14 @@ local request = nil
 
 local line = ''
 
+--[[
+    sends a response to the original script in the form of a json string
+    it is expected that all requests get a response, if the input is nil then err should say why
+    current error codes are:
+        cancelled       the user closed the input instead of pressing Enter
+        already_queued  a request with the specified id was already in the queue
+        replaced        the request was replaced with a newer request
+]]--
 local function send_response(send_line, err, override_response)
     local response = utils.format_json({input = send_line and line or nil, err = err})
     if not response then error("could not format json response") end
@@ -39,10 +47,13 @@ end
     https://github.com/mpv-player/mpv/blob/7ca14d646c7e405f3fb1e44600e2a67fc4607238/player/lua/console.lua
 
     Modifications:
-        Removed support for log messages, sending commands, tab complete, help commands
+        removed support for log messages, sending commands, tab complete, help commands
+        removed update timer
         Changed esc key to call handle_esc function
         handle_esc and handle_enter now call the send_response() function
-        Made history specific to request ids
+        all functions that send responses now call queue:pop()
+        made history specific to request ids
+        localised all functions - reordered some to fit
 ]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
@@ -67,7 +78,7 @@ end
 
 local assdraw = require 'mp.assdraw'
 
-function detect_platform()
+local function detect_platform()
     local o = {}
     -- Kind of a dumb way of detecting the platform but whatever
     if mp.get_property_native('options/vo-mmcss-profile', o) ~= o then
@@ -92,38 +103,12 @@ end
 
 local repl_active = false
 local insert_mode = false
-local pending_update = false
 local cursor = 1
 local key_bindings = {}
 local global_margin_y = 0
 
-local update_timer = nil
-update_timer = mp.add_periodic_timer(0.05, function()
-    if pending_update then
-        update()
-    else
-        update_timer:kill()
-    end
-end)
-update_timer:kill()
-
-utils.shared_script_property_observe("osc-margins", function(_, val)
-    if val then
-        -- formatted as "%f,%f,%f,%f" with left, right, top, bottom, each
-        -- value being the border size as ratio of the window size (0.0-1.0)
-        local vals = {}
-        for v in string.gmatch(val, "[^,]+") do
-            vals[#vals + 1] = tonumber(v)
-        end
-        global_margin_y = vals[4] -- bottom
-    else
-        global_margin_y = 0
-    end
-    update()
-end)
-
 -- Escape a string for verbatim display on the OSD
-function ass_escape(str)
+local function ass_escape(str)
     -- There is no escape for '\' in ASS (I think?) but '\' is used verbatim if
     -- it isn't followed by a recognised character, so add a zero-width
     -- non-breaking space
@@ -140,9 +125,7 @@ function ass_escape(str)
 end
 
 -- Render the REPL and console as an ASS OSD
-function update()
-    pending_update = false
-
+local function update()
     local dpi_scale = mp.get_property_native("display-hidpi-scale", 1.0)
 
     dpi_scale = dpi_scale * opts.scale
@@ -198,25 +181,9 @@ function update()
     mp.set_osd_ass(screenx, screeny, ass.text)
 end
 
--- Set the REPL visibility ("enable", Esc)
-function set_active(active)
-    if active == repl_active then return end
-    if active then
-        repl_active = true
-        insert_mode = false
-        define_key_bindings()
-    else
-        clear()
-        repl_active = false
-        undefine_key_bindings()
-        collectgarbage()
-    end
-    update()
-end
-
 -- Naive helper function to find the next UTF-8 character in 'str' after 'pos'
 -- by skipping continuation bytes. Assumes 'str' contains valid UTF-8.
-function next_utf8(str, pos)
+local function next_utf8(str, pos)
     if pos > str:len() then return pos end
     repeat
         pos = pos + 1
@@ -225,7 +192,7 @@ function next_utf8(str, pos)
 end
 
 -- As above, but finds the previous UTF-8 charcter in 'str' before 'pos'
-function prev_utf8(str, pos)
+local function prev_utf8(str, pos)
     if pos <= 1 then return pos end
     repeat
         pos = pos - 1
@@ -234,7 +201,7 @@ function prev_utf8(str, pos)
 end
 
 -- Insert a character at the current cursor position (any_unicode, Shift+Enter)
-function handle_char_input(c)
+local function handle_char_input(c)
     if insert_mode then
         line = line:sub(1, cursor - 1) .. c .. line:sub(next_utf8(line, cursor))
     else
@@ -245,7 +212,7 @@ function handle_char_input(c)
 end
 
 -- Remove the character behind the cursor (Backspace)
-function handle_backspace()
+local function handle_backspace()
     if cursor <= 1 then return end
     local prev = prev_utf8(line, cursor)
     line = line:sub(1, prev - 1) .. line:sub(cursor)
@@ -254,31 +221,31 @@ function handle_backspace()
 end
 
 -- Remove the character in front of the cursor (Del)
-function handle_del()
+local function handle_del()
     if cursor > line:len() then return end
     line = line:sub(1, cursor - 1) .. line:sub(next_utf8(line, cursor))
     update()
 end
 
 -- Toggle insert mode (Ins)
-function handle_ins()
+local function handle_ins()
     insert_mode = not insert_mode
 end
 
 -- Move the cursor to the next character (Right)
-function next_char(amount)
+local function next_char(amount)
     cursor = next_utf8(line, cursor)
     update()
 end
 
 -- Move the cursor to the previous character (Left)
-function prev_char(amount)
+local function prev_char(amount)
     cursor = prev_utf8(line, cursor)
     update()
 end
 
 -- Clear the current line (Ctrl+C)
-function clear()
+local function clear()
     line = ''
     cursor = 1
     insert_mode = false
@@ -287,9 +254,10 @@ function clear()
 end
 
 -- Close the REPL if the current line is empty, otherwise do nothing (Ctrl+D)
-function maybe_exit()
+local function maybe_exit()
     if line == '' then
-        set_active(false)
+        send_response(false, "cancelled")
+        queue:pop()
     end
 end
 
@@ -299,7 +267,7 @@ local function handle_esc()
 end
 
 -- Run the current command and clear the line (Enter)
-function handle_enter()
+local function handle_enter()
     if request.history.list[#request.history.list] ~= line and line ~= "" then
         request.history.list[#request.history.list + 1] = line
     end
@@ -308,7 +276,7 @@ function handle_enter()
 end
 
 -- Go to the specified position in the command history
-function go_history(new_pos)
+local function go_history(new_pos)
     local old_pos = request.history.pos
     request.history.pos = new_pos
 
@@ -343,23 +311,23 @@ function go_history(new_pos)
 end
 
 -- Go to the specified relative position in the command history (Up, Down)
-function move_history(amount)
+local function move_history(amount)
     go_history(request.history.pos + amount)
 end
 
 -- Go to the first command in the command history (PgUp)
-function handle_pgup()
+local function handle_pgup()
     go_history(1)
 end
 
 -- Stop browsing history and start editing a blank line (PgDown)
-function handle_pgdown()
+local function handle_pgdown()
     go_history(#request.history.list + 1)
 end
 
 -- Move to the start of the current word, or if already at the start, the start
 -- of the previous word. (Ctrl+Left)
-function prev_word()
+local function prev_word()
     -- This is basically the same as next_word() but backwards, so reverse the
     -- string in order to do a "backwards" find. This wouldn't be as annoying
     -- to do if Lua didn't insist on 1-based indexing.
@@ -369,25 +337,25 @@ end
 
 -- Move to the end of the current word, or if already at the end, the end of
 -- the next word. (Ctrl+Right)
-function next_word()
+local function next_word()
     cursor = select(2, line:find('%s*[^%s]*', cursor)) + 1
     update()
 end
 
 -- Move the cursor to the beginning of the line (HOME)
-function go_home()
+local function go_home()
     cursor = 1
     update()
 end
 
 -- Move the cursor to the end of the line (END)
-function go_end()
+local function go_end()
     cursor = line:len() + 1
     update()
 end
 
 -- Delete from the cursor to the end of the word (Ctrl+W)
-function del_word()
+local function del_word()
     local before_cur = line:sub(1, cursor - 1)
     local after_cur = line:sub(cursor)
 
@@ -398,20 +366,20 @@ function del_word()
 end
 
 -- Delete from the cursor to the end of the line (Ctrl+K)
-function del_to_eol()
+local function del_to_eol()
     line = line:sub(1, cursor - 1)
     update()
 end
 
 -- Delete from the cursor back to the start of the line (Ctrl+U)
-function del_to_start()
+local function del_to_start()
     line = line:sub(cursor)
     cursor = 1
     update()
 end
 
 -- Returns a string of UTF-8 text from the clipboard (or the primary selection)
-function get_clipboard(clip)
+local function get_clipboard(clip)
     if platform == 'x11' then
         local res = utils.subprocess({
             args = { 'xclip', '-selection', clip and 'clipboard' or 'primary', '-out' },
@@ -467,7 +435,7 @@ end
 
 -- Paste text from the window-system's clipboard. 'clip' determines whether the
 -- clipboard or the primary selection buffer is used (on X11 and Wayland only.)
-function paste(clip)
+local function paste(clip)
     local text = get_clipboard(clip)
     local before_cur = line:sub(1, cursor - 1)
     local after_cur = line:sub(cursor)
@@ -478,7 +446,7 @@ end
 
 -- List of input bindings. This is a weird mashup between common GUI text-input
 -- bindings and readline bindings.
-function get_bindings()
+local function get_bindings()
     local bindings = {
         { 'esc',         handle_esc                                 },
         { 'enter',       handle_enter                               },
@@ -531,7 +499,7 @@ local function text_input(info)
     end
 end
 
-function define_key_bindings()
+local function define_key_bindings()
     if #key_bindings > 0 then
         return
     end
@@ -546,12 +514,44 @@ function define_key_bindings()
     key_bindings[#key_bindings + 1] = "_console_text"
 end
 
-function undefine_key_bindings()
+local function undefine_key_bindings()
     for _, name in ipairs(key_bindings) do
         mp.remove_key_binding(name)
     end
     key_bindings = {}
 end
+
+-- Set the REPL visibility ("enable", Esc)
+local function set_active(active)
+    if active == repl_active then return end
+    if active then
+        repl_active = true
+        insert_mode = false
+        define_key_bindings()
+    else
+        clear()
+        repl_active = false
+        undefine_key_bindings()
+        collectgarbage()
+    end
+    update()
+end
+
+
+utils.shared_script_property_observe("osc-margins", function(_, val)
+    if val then
+        -- formatted as "%f,%f,%f,%f" with left, right, top, bottom, each
+        -- value being the border size as ratio of the window size (0.0-1.0)
+        local vals = {}
+        for v in string.gmatch(val, "[^,]+") do
+            vals[#vals + 1] = tonumber(v)
+        end
+        global_margin_y = vals[4] -- bottom
+    else
+        global_margin_y = 0
+    end
+    update()
+end)
 
 -- Redraw the REPL when the OSD size changes. This is needed because the
 -- PlayRes of the OSD will need to be adjusted.
