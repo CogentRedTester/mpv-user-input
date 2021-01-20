@@ -594,13 +594,17 @@ end
 
 -- removes the first item in the queue and either continues or stops the queue
 function queue:pop()
-    local front = table.remove(self.queue, 1)
-
+    self:remove(1)
     clear()
-    self.active_ids[front.id] = self.active_ids[front.id] ~= 1 and self.active_ids[front.id] - 1 or nil
 
     if #self.queue < 1 then self:stop_queue()
     else self:continue_queue() end
+end
+
+-- safely removes an item from the queue and updates the set of active requests
+function queue:remove(index)
+    local req = table.remove(self.queue, index)
+    self.active_ids[req.id] = self.active_ids[req.id] ~= 1 and self.active_ids[req.id] - 1 or nil
 end
 
 function queue:start_queue()
@@ -622,7 +626,7 @@ mp.register_script_message("cancel-user-input", function(id)
     for i = 2, #queue.queue do
         if queue.queue[i].id == id then
             send_response(false, "cancelled", queue.queue[i].response)
-            table.remove(queue.queue, i)
+            queue:remove(i)
         end
     end
     if queue.queue[1] and queue.queue[1].id == id then
