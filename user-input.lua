@@ -55,6 +55,7 @@ end
         all functions that send responses now call queue:pop()
         made history specific to request ids
         localised all functions - reordered some to fit
+        keybindings use new names
 ]]--
 
 ------------------------------START ORIGINAL MPV CODE-----------------------------------
@@ -506,13 +507,13 @@ local function define_key_bindings()
     end
     for _, bind in ipairs(get_bindings()) do
         -- Generate arbitrary name for removing the bindings later.
-        local name = "_console_" .. (#key_bindings + 1)
+        local name = "_userinput_" .. bind[1]
         key_bindings[#key_bindings + 1] = name
         mp.add_forced_key_binding(bind[1], name, bind[2], {repeatable = true})
     end
-    mp.add_forced_key_binding("any_unicode", "_console_text", text_input,
+    mp.add_forced_key_binding("any_unicode", "_userinput_text", text_input,
         {repeatable = true, complex = true})
-    key_bindings[#key_bindings + 1] = "_console_text"
+    key_bindings[#key_bindings + 1] = "_userinput_text"
 end
 
 local function undefine_key_bindings()
