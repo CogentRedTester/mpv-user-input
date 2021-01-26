@@ -13,6 +13,8 @@ Usage of this API requires that standard interface functions be used to request 
 The aim of this script is that it be seamless enough that it could be added to mpv player officially.
 
 ## Interface Functions
+Note: this API is still in its early stages, so these functions may change.
+
 ### `get_user_input(fn [,options])`
 Requests user input and calls `fn` when this script sends a response.
 The first argument will be the input string the user entered, the second argument will be an error string if the input is `nil`.
