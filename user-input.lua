@@ -37,9 +37,7 @@ local line = ''
         cancelled       a script cancelled the request
 ]]--
 local function send_response(send_line, err, override_response)
-    local response = utils.format_json({input = send_line and line or nil, err = err})
-    if not response then error("could not format json response") end
-    mp.commandv("script-message", override_response or request.response, response)
+    mp.commandv("script-message", override_response or request.response, send_line and line or "", err or "")
 end
 
 
@@ -638,15 +636,19 @@ end)
 
 -- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
 -- requests are recieved as json objects
-mp.register_script_message("request-user-input", function(request)
-    local req = utils.parse_json(request) or {}
+mp.register_script_message("request-user-input", function(response, id, text, queueable, replace)
+    local req = {}
 
-    if not req.response then msg.error("input requests require a response string") ; return end
-    req.text = ass_escape(req.text or "")
-    req.id = req.id or "mpv"
+    if not response then msg.error("input requests require a response string") ; return end
+    if not id then msg.error("input requests require an id string") ; return end
+    req.response = response
+    req.text = ass_escape(text or "")
+    req.id = id or "mpv"
+    req.queueable = (queueable == "1")
+    req.replace = (replace == "1")
 
-    if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
-    req.history = histories[req.id]
+    if not histories[id] then histories[id] = {pos = 1, list = {}} end
+    req.history = histories[id]
 
     queue:push(req)
 end)
