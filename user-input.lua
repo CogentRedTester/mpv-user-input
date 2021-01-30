@@ -585,7 +585,7 @@ function queue:push(req)
         end
 
         --cancel the new request if it is not queueable
-        if not req.queueable then send_response(false, "already_queued") ; return end
+        if not req.queueable then send_response(false, "already_queued", req.response) ; return end
     end
 
     table.insert(self.queue, req)
