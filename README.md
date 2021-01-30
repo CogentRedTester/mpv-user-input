@@ -8,7 +8,7 @@ As a result this script's text input has almost identical behaviour to console.l
 Around the original code is a system to recieve input requests via script messages, and respond with the users input, and an error message if the request was somehow terminated.
 The script utilises a queue system to handle multiple requests at once, and there are various option flags to control how to handle multiple requests from the same source.
 
-Usage of this API requires that standard interface functions be used to request and cancel input requests, these functions are packaged into [input-module.lua](/input-module.lua), which can be loaded as a module, or simply pasted into another script.
+Usage of this API requires that standard interface functions be used to request and cancel input requests, these functions are packaged into [user-input-module.lua](/user-input-module.lua), which can be loaded as a module, or simply pasted into another script.
 
 The aim of this script is that it be seamless enough that it could be added to mpv player officially.
 
