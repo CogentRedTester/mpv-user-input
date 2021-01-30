@@ -166,8 +166,8 @@ local function update()
     ass:new_event()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
-    ass:append(style .. request.ass .. '\\N')
-    ass:append(style .. '> ' .. before_cur)
+    ass:append(style .. request.text .. '\\N')
+    ass:append('> ' .. before_cur)
     ass:append(cglyph)
     ass:append(style .. after_cur)
 
@@ -642,7 +642,7 @@ mp.register_script_message("request-user-input", function(request)
     local req = utils.parse_json(request) or {}
 
     if not req.response then msg.error("input requests require a response string") ; return end
-    req.ass = req.ass or ass_escape(req.text or "")
+    req.text = ass_escape(req.text or "")
     req.id = req.id or "mpv"
 
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end

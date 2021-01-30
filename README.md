@@ -32,7 +32,6 @@ The following options are currently available:
 
     id          a string id used for storing input history and detecting duplicate requests (default: mp.get_script_name())
     text        a string to print above the input box - use it to describe the input request
-    ass         as above, but without escaping ass codes - use this to customise the style of the request text
     queueable   allow request if another request with the same id is already queued
     replace     replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable
 
