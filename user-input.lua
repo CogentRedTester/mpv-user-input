@@ -622,12 +622,16 @@ end
 
 -- removes all requests with the specified id from the queue
 mp.register_script_message("cancel-user-input", function(id)
-    for i = 2, #queue.queue do
+    local i = 2
+    while i <= #queue.queue do
         if queue.queue[i].id == id then
             send_response(false, "cancelled", queue.queue[i].response)
             queue:remove(i)
+        else
+            i = i + 1
         end
     end
+
     if queue.queue[1] and queue.queue[1].id == id then
         send_response(false, "cancelled")
         queue:pop()
