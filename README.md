@@ -9,6 +9,7 @@ Around the original code is a system to recieve input requests via script messag
 The script utilises a queue system to handle multiple requests at once, and there are various option flags to control how to handle multiple requests from the same source.
 
 Usage of this API requires that standard interface functions be used to request and cancel input requests, these functions are packaged into [user-input-module.lua](/user-input-module.lua), which can be loaded as a module, or simply pasted into another script.
+If a script does choose to load the module, then I recommend it be loaded from `~~/script-modules` rather than `~~/scripts`.
 
 The aim of this script is that it be seamless enough that it could be added to mpv player officially.
 
