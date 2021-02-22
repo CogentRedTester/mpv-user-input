@@ -14,9 +14,11 @@ If a script does choose to load the module, then I recommend it be loaded from `
 The aim of this script is that it be seamless enough that it could be added to mpv player officially.
 
 ## Interface Functions
+
 Note: this API is still in its early stages, so these functions may change.
 
 ### `get_user_input(fn [,options])`
+
 Requests user input and calls `fn` when this script sends a response.
 The first argument will be the input string the user entered, the second argument will be an error string if the input is `nil`.
 
@@ -28,6 +30,7 @@ The following error codes currently exist:
     cancelled       a script cancelled the request
 
 #### options
+
 Options is a table of values and flags which can be used to control the behaviour of user-input. The function will preset some options if they are left blank.
 The following options are currently available:
 
@@ -42,5 +45,10 @@ so make sure that the function is used.
 Also note that the `queueable` and `replace` flags apply to the incoming requests, not requests that already exist in the queue.
 
 ### `cancel_user_input([id])`
+
 Removes all input requests with a matching string id.
 If no id is provided, then the script's name - as returned by `mp.get_script_name()` - will be used.
+
+## Examples
+
+The [examples](/examples) folder contains some scripts that make user of the API.
