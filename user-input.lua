@@ -588,7 +588,7 @@ function queue:push(req)
 
     table.insert(self.queue, req)
     self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1
-    if #self.queue == 1 then self:start_queue() end
+    if #self.queue == 1 then return self:start_queue() end
 end
 
 -- removes the first item in the queue and either continues or stops the queue
@@ -596,8 +596,8 @@ function queue:pop()
     self:remove(1)
     clear()
 
-    if #self.queue < 1 then self:stop_queue()
-    else self:continue_queue() end
+    if #self.queue < 1 then return self:stop_queue()
+    else return self:continue_queue() end
 end
 
 -- safely removes an item from the queue and updates the set of active requests
@@ -608,11 +608,13 @@ end
 
 function queue:start_queue()
     request = self.queue[1]
+    line = request.default_input
     set_active(true)
 end
 
 function queue:continue_queue()
     request = self.queue[1]
+    line = request.default_input
     update()
 end
 
@@ -640,13 +642,14 @@ end)
 
 -- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
 -- requests are recieved as json objects
-mp.register_script_message("request-user-input", function(response, id, text, queueable, replace)
+mp.register_script_message("request-user-input", function(response, id, request_text, default_input, queueable, replace)
     local req = {}
 
     if not response then msg.error("input requests require a response string") ; return end
     if not id then msg.error("input requests require an id string") ; return end
     req.response = response
-    req.text = ass_escape(text or "")
+    req.text = ass_escape(request_text or "")
+    req.default_input = default_input
     req.id = id or "mpv"
     req.queueable = (queueable == "1")
     req.replace = (replace == "1")

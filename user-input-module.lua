@@ -13,7 +13,7 @@ local counter = 1
 local function get_user_input(funct, options)
     options = options or {}
     options.id = name .. '/' .. (options.id or "")
-    options.text = options.text or (name.." is requesting user input:")
+    options.request_text = options.request_text or options.text or (name.." is requesting user input:")
 
     local response_string = name.."/__user_input_request/"..counter
     counter = counter + 1
@@ -25,7 +25,7 @@ local function get_user_input(funct, options)
     end)
 
     mp.commandv("script-message-to", "user_input", "request-user-input",
-        response_string, options.id, options.text, options.queueable and "1" or "", options.replace and "1" or ""
+        response_string, options.id, options.request_text, options.default_input or "", options.queueable and "1" or "", options.replace and "1" or ""
     )
 end
 

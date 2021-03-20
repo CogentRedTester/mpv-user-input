@@ -34,10 +34,11 @@ The following error codes currently exist:
 Options is a table of values and flags which can be used to control the behaviour of user-input. The function will preset some options if they are left blank.
 The following options are currently available:
 
-    id          a string id used for storing input history and detecting duplicate requests (default: mp.get_script_name())
-    text        a string to print above the input box - use it to describe the input request
-    queueable   allow request if another request with the same id is already queued
-    replace     replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable
+    id              a string id used for storing input history and detecting duplicate requests (default: mp.get_script_name())
+    request_text    a string to print above the input box - use it to describe the input request
+    default_input   text to pre-enter into the input
+    queueable       allow request if another request with the same id is already queued
+    replace         replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable
 
 The function prepends the script name to any id to avoid conflicts, but the actual script has no way to determining where the requests come from,
 so make sure that the function is used.
