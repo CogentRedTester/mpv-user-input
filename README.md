@@ -17,7 +17,7 @@ The aim of this script is that it be seamless enough that it could be added to m
 
 **If you've been directed here by another script that requires this API follow these instructions unless told otherwise.**
 
-Place `user-input.lua` inside the `~~/scripts/` directory, and place `user-input-module.lua` inside the `~~/script-modules/` directory.
+Place [user-input.lua](user-input.lua) inside the `~~/scripts/` directory, and place [user-input-module.lua](user-input-module.lua) inside the `~~/script-modules/` directory.
 Create these directories if they do not exist. `~~/` represents the mpv config directory.
 
 ### Advanced
