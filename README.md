@@ -47,6 +47,7 @@ Options is a table of values and flags which can be used to control the behaviou
 The following options are currently available:
 
     id              a string id used for storing input history and detecting duplicate requests (default: mp.get_script_name())
+    source          a string used to show the source of the request in square brackets (default: mp.get_script_name)
     request_text    a string to print above the input box - use it to describe the input request
     default_input   text to pre-enter into the input
     queueable       allow request if another request with the same id is already queued

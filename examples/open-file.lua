@@ -23,7 +23,7 @@ mp.add_key_binding("Ctrl+o", "open-file-input", function()
     get_user_input(function(input)
         loadfile(input, "replace")
     end, {
-        text = "[open-file] Enter path to open:",
+        text = "Enter path to open:",
         replace = true
     })
 end)
@@ -32,7 +32,7 @@ mp.add_key_binding("Ctrl+O", "append-file-input", function()
     get_user_input(function(input)
         loadfile(input, "append-play")
     end, {
-        text = "[open-file] Enter path to append to playlist:",
+        text = "Enter path to append to playlist:",
         replace = true
     })
 end)
