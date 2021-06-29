@@ -10,29 +10,23 @@
 local mp = require "mp"
 
 package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"})..package.path
-local ui = require "user-input-module"
-local get_user_input = ui.get_user_input
+local uin = require "user-input-module"
 
-
-local function loadfile(path, flag)
+local function loadfile(path, err, flag)
     if not path then return end
     mp.commandv("loadfile", path, flag)
 end
 
 mp.add_key_binding("Ctrl+o", "open-file-input", function()
-    get_user_input(function(input)
-        loadfile(input, "replace")
-    end, {
-        text = "Enter path to open:",
+    uin.get_user_input(loadfile, {
+        request_text = "Enter path:",
         replace = true
-    })
+    }, "replace")
 end)
 
 mp.add_key_binding("Ctrl+O", "append-file-input", function()
-    get_user_input(function(input)
-        loadfile(input, "append-play")
-    end, {
-        text = "Enter path to append to playlist:",
+    uin.get_user_input(loadfile, {
+        request_text = "Enter path to append to playlist:",
         replace = true
-    })
+    }, "append-play")
 end)
