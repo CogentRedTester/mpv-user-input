@@ -29,10 +29,12 @@ Meanwhile, `user-input-module.lua` needs to be in one of the lua package paths; 
 
 Note: this API is still in its early stages, so these functions may change.
 
-### `get_user_input(fn [,options])`
+### `get_user_input(fn [, options [, ...]])`
 
 Requests user input and calls `fn` when this script sends a response.
 The first argument will be the input string the user entered, the second argument will be an error string if the input is `nil`.
+
+Any additional arguments sent after the options table will be sent to fn as additional arguments after the error string.
 
 The following error codes currently exist:
 
@@ -43,7 +45,7 @@ The following error codes currently exist:
 
 #### options
 
-Options is a table of values and flags which can be used to control the behaviour of user-input. The function will preset some options if they are left blank.
+Options is an optional table of values and flags which can be used to control the behaviour of user-input. The function will preset some options if they are left blank.
 The following options are currently available:
 
     id              a string id used for storing input history and detecting duplicate requests (default: mp.get_script_name())
