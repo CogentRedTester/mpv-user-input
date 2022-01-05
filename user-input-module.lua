@@ -28,7 +28,7 @@ function mod.get_user_input(fn, options, ...)
     -- create a callback for user-input to respond to
     mp.register_script_message(response_string, function(input, err)
         mp.unregister_script_message(response_string)
-        fn(err == "" and input or nil, err, passthrough_args and table.unpack(passthrough_args))
+        fn(err == "" and input or nil, err, passthrough_args and unpack(passthrough_args))
     end)
 
     -- send the input command
