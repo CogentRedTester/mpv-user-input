@@ -146,6 +146,13 @@ local function update()
                   '\\1c&Heeeeee&\\3c&H111111&\\4c&H000000&' ..
                   '\\fn' .. opts.font .. '\\fs' .. opts.font_size ..
                   '\\bord1\\xshad0\\yshad1\\fsp0\\q1}'
+
+    local queue_style = '{\\r' ..
+                        '\\1a&H00&\\3a&H00&\\4a&H99&' ..
+                        '\\1c&Heeeeee&\\3c&H111111&\\4c&H000000&' ..
+                        '\\fn' .. opts.font .. '\\fs' .. opts.font_size .. '\\c&H66ccff&' ..
+                        '\\bord1\\xshad0\\yshad1\\fsp0\\q1}'
+
     -- Create the cursor glyph as an ASS drawing. ASS will draw the cursor
     -- inline with the surrounding text, but it sets the advance to the width
     -- of the drawing. So the cursor doesn't affect layout too much, make it as
@@ -164,6 +171,9 @@ local function update()
     ass:new_event()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
+
+    if (#queue.queue == 2) then ass:append(queue_style .. string.format("There is 1 more request queued\\N"))
+    elseif (#queue.queue > 2) then ass:append(queue_style .. string.format("There are %d more requests queued\\N", #queue.queue-1)) end
     ass:append(style .. request.text .. '\\N')
     ass:append('> ' .. before_cur)
     ass:append(cglyph)
@@ -614,6 +624,7 @@ function queue:push(req)
 
     table.insert(self.queue, req)
     self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1
+    update()
     if #self.queue == 1 then return self:start_queue() end
 end
 
