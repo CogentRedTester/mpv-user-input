@@ -48,12 +48,15 @@ The following error codes currently exist:
 Options is an optional table of values and flags which can be used to control the behaviour of user-input. The function will preset some options if they are left blank.
 The following options are currently available:
 
-    id              a string id used for storing input history and detecting duplicate requests (default: mp.get_script_name())
-    source          a string used to show the source of the request in square brackets (default: mp.get_script_name)
-    request_text    a string to print above the input box - use it to describe the input request
-    default_input   text to pre-enter into the input
-    queueable       allow request if another request with the same id is already queued
-    replace         replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable
+| name          | type    | default                   | description                                                                                                       |
+|---------------|---------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
+| id            | string  | mp.get_script_name()..`/` | used for storing input history and detecting duplicate requests -                                                 |
+| source        | string  | mp.get_script_name()      | used to show the source of the request in square brackets                                                         |
+| request_text  | string  | `requesting user input:`  | printed above the input box - use it to describe the input request                                                |
+| default_input | string  |                           | text to pre-enter into the input                                                                                  |
+| cursor_pos    | number  | 1                         | the numerical position to place the cursor - for use with the default_input field                                 |
+| queueable     | boolean | false                     | allow request if another request with the same id is already queued                                               |
+| replace       | boolean | false                     | replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable |
 
 The function prepends the script name to any id to avoid conflicts, but the actual script has no way to determining where the requests come from,
 so make sure that the function is used.
