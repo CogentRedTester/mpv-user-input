@@ -680,38 +680,37 @@ mp.register_script_message("cancel-user-input", function(id)
 end)
 
 --the function that parses the input requests
-local function input_request(response, id, request_text, default_input, queueable, replace, cursor_pos)
-    local req = {}
+local function input_request(request)
+    local req = utils.parse_json(request)
 
-    if not response then msg.error("input requests require a response string") ; return end
-    if not id then msg.error("input requests require an id string") ; return end
-    req.response = response
-    req.text = ass_escape(request_text or "")
-    req.default_input = default_input
-    req.id = id or "mpv"
-    req.queueable = (queueable == "1")
-    req.replace = (replace == "1")
+    if not req.response then msg.error("input requests require a response string") ; return end
+    if not req.id then msg.error("input requests require an id string") ; return end
+    req.text = ass_escape(req.request_text or "")
+    req.default_input = req.default_input or ""
+    req.cursor_pos = req.cursor_pos or 1
+    req.id = req.id or "mpv"
 
-    if cursor_pos ~= "1" then
-        cursor_pos = tonumber(cursor_pos)
-
+    if req.cursor_pos ~= 1 then
         if cursor_pos < 1 then cursor_pos = 1
-        elseif cursor_pos > #default_input then cursor_pos = #default_input end
+        elseif cursor_pos > #req.default_input then cursor_pos = #req.default_input end
         req.cursor_pos = cursor_pos
     else
         req.cursor_pos = 1
     end
 
-    if not histories[id] then histories[id] = {pos = 1, list = {}} end
-    req.history = histories[id]
+    if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
+    req.history = histories[req.id]
 
-    msg.debug(utils.to_string(req))
     queue:push(req)
 end
 
 -- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
-mp.register_script_message("request-user-input", function(...)
-    local success, err = pcall(input_request, ...)
-    if not success then msg.error(err) end
+mp.register_script_message("request-user-input", function(request)
+    msg.debug(request)
+    local success, err = pcall(input_request, request)
+    if not success then
+        send_response(nil, err, request.response)
+        msg.error(err)
+    end
 end)
 
