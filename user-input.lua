@@ -693,8 +693,6 @@ local function input_request(req)
         if cursor_pos < 1 then cursor_pos = 1
         elseif cursor_pos > #req.default_input then cursor_pos = #req.default_input end
         req.cursor_pos = cursor_pos
-    else
-        req.cursor_pos = 1
     end
 
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
