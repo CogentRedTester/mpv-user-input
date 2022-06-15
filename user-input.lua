@@ -18,6 +18,9 @@ local opts = {
 
 options.read_options(opts, "user_input")
 
+local API_VERSION = "0.1.0"
+local API_MAJOR_MINOR = API_VERSION:match("%d+%.%d+")
+
 local co = nil
 local queue  = {}
 local active_ids = {}
@@ -674,8 +677,13 @@ end)
 
 --the function that parses the input requests
 local function input_request(req)
-    if not req.response then msg.error("input requests require a response string") ; return end
-    if not req.id then msg.error("input requests require an id string") ; return end
+    if not req.version then return msg.error("input requests require an API version string") end
+    if not string.find(req.version, API_MAJOR_MINOR, 1, true) then
+        return msg.error(("input request has invalid version: expected %s.x, got %s"):format(API_MAJOR_MINOR, req.version))
+    end
+
+    if not req.response then return msg.error("input requests require a response string") end
+    if not req.id then return msg.error("input requests require an id string") end
 
     req.text = ass_escape(req.request_text or "")
     req.default_input = req.default_input or ""

@@ -10,6 +10,8 @@
     these requests will remain the same for future versions of user-input.
 ]]
 
+local API_VERSION = "0.1.0"
+
 local mp = require 'mp'
 local utils = require 'mp.utils'
 local mod = {}
@@ -42,6 +44,7 @@ function mod.get_user_input(fn, options, ...)
 
     -- send the input command
     mp.commandv("script-message-to", "user_input", "request-user-input", (utils.format_json({
+        version = API_VERSION,
         id = name..'/'..(options.id or ""),
         source = name,
         response = response_string,
