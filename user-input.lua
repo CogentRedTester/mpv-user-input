@@ -38,8 +38,7 @@ local line = ''
         removed support for log messages, sending commands, tab complete, help commands
         removed update timer
         Changed esc key to call handle_esc function
-        handle_esc and handle_enter now call the send_response() function
-        all functions that send responses now call queue:pop()
+        handle_esc and handle_enter now resume the main coroutine with a response table
         made history specific to request ids
         localised all functions - reordered some to fit
         keybindings use new names
