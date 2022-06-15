@@ -669,7 +669,13 @@ mp.register_script_message("cancel-user-input", function(id)
 
             --if we're removing the first item then that means the coroutine is waiting for a response
             --we will need to tell the coroutine to resume, upon which it will move to the next request
-            if i == 1 then coroutine.resume(co) end
+            --if there is something in the buffer then save it to the history before erasing it
+            if i == 1 then
+                local old_line = line
+                if old_line ~= "" then table.insert(histories[req.id].list, old_line) end
+                clear()
+                coroutine.resume(co)
+            end
         end
     end
 end)
