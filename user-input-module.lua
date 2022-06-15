@@ -47,7 +47,8 @@ function mod.get_user_input(fn, options, ...)
         response = response_string,
         request_text = ("[%s] %s"):format(options.source or name, options.request_text or options.text or "requesting user input:"),
         default_input = options.default_input,
-        cursor_pos = options.cursor_pos
+        cursor_pos = options.cursor_pos,
+        queueable = options.queueable and true
     })))
 end
 

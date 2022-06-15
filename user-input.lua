@@ -609,13 +609,13 @@ end
 -- if a request with the same id already exists and the queueable flag is not enabled then
 -- a nil result will be returned to the function
 function push_request(req)
-    if active_ids[req.id] then
+    if active_ids[req.id] and not req.queueable then
         send_response{ err = "already_queued", response = req.response }
         return
     end
 
     table.insert(queue, req)
-    active_ids[req.id] = true
+    active_ids[req.id] = (active_ids[req.id] or 0) + 1
     if #queue == 1 then coroutine.resume(co) end
     update()
 end
@@ -623,7 +623,9 @@ end
 -- safely removes an item from the queue and updates the set of active requests
 function remove_request(index)
     local req = table.remove(queue, index)
-    active_ids[req.id] = nil
+    active_ids[req.id] = active_ids[req.id] - 1
+
+    if active_ids[req.id] == 0 then active_ids[req.id] = nil end
     return req
 end
 

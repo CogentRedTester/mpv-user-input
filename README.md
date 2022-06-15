@@ -54,18 +54,18 @@ The following options are currently available:
 | request_text  | string  | `requesting user input:`  | printed above the input box - use it to describe the input request                                                |
 | default_input | string  |                           | text to pre-enter into the input                                                                                  |
 | cursor_pos    | number  | 1                         | the numerical position to place the cursor - for use with the default_input field                                 |
-| queueable     | boolean | false                     | allow request if another request with the same id is already queued                                               |
-| replace       | boolean | false                     | replace the first existing request with the same id - otherwise add to the back like normal - overrides queueable |
+| queueable     | boolean | false                     | allows request to be queued even if there is already one queued with the same id                                  |
 
 The function prepends the script name to any id to avoid conflicts, but the actual script has no way to determining where the requests come from,
 so make sure that the function is used.
 
-Also note that the `queueable` and `replace` flags apply to the incoming requests, not requests that already exist in the queue.
+The `replace` flag has been removed in an effort to simplify the backend of the script.
+To replicate `replace` you can use `cancel_user_input` before making the request.
 
 ### `cancel_user_input([id])`
 
 Removes all input requests with a matching string id.
-If no id is provided, then the script's name - as returned by `mp.get_script_name()` - will be used.
+If no id is provided, then the default id for `get_user_input()` will be used.
 
 ## Examples
 
