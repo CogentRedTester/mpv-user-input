@@ -33,19 +33,22 @@ function mod.get_user_input(fn, options, ...)
     local passthrough_args = pack(...)
 
     -- create a callback for user-input to respond to
-    mp.register_script_message(response_string, function(input, err)
+    mp.register_script_message(response_string, function(response)
         mp.unregister_script_message(response_string)
-        fn(err == "" and input or nil, err, unpack(passthrough_args, 1, passthrough_args.n))
+
+        response = utils.parse_json(response)
+        fn(response.line, response.err, unpack(passthrough_args, 1, passthrough_args.n))
     end)
 
     -- send the input command
-    mp.commandv("script-message-to", "user_input", "request-user-input", utils.format_json({
+    mp.commandv("script-message-to", "user_input", "request-user-input", (utils.format_json({
         id = name..'/'..(options.id or ""),
+        source = name,
         response = response_string,
         request_text = ("[%s] %s"):format(options.source or name, options.request_text or options.text or "requesting user input:"),
         default_input = options.default_input,
         cursor_pos = options.cursor_pos
-    }))
+    })))
 end
 
 -- sends a request to cancel all input requests with the given id

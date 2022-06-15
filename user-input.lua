@@ -18,27 +18,13 @@ local opts = {
 
 options.read_options(opts, "user_input")
 
-local queue = {
-    queue = {},
-    active_ids = {}
-}
+local co = nil
+local queue  = {}
+local active_ids = {}
 local histories = {}
 local request = nil
 
 local line = ''
-
---[[
-    sends a response to the original script in the form of a json string
-    it is expected that all requests get a response, if the input is nil then err should say why
-    current error codes are:
-        exitted        the user closed the input instead of pressing Enter
-        already_queued  a request with the specified id was already in the queue
-        replaced        the request was replaced with a newer request
-        cancelled       a script cancelled the request
-]]--
-local function send_response(send_line, err, override_response)
-    mp.commandv("script-message", override_response or request.response, send_line and line or "", err or "")
-end
 
 
 --[[
@@ -172,8 +158,8 @@ local function update()
     ass:an(1)
     ass:pos(2, screeny - 2 - global_margin_y * screeny)
 
-    if (#queue.queue == 2) then ass:append(queue_style .. string.format("There is 1 more request queued\\N"))
-    elseif (#queue.queue > 2) then ass:append(queue_style .. string.format("There are %d more requests queued\\N", #queue.queue-1)) end
+    if (#queue == 2) then ass:append(queue_style .. string.format("There is 1 more request queued\\N"))
+    elseif (#queue > 2) then ass:append(queue_style .. string.format("There are %d more requests queued\\N", #queue-1)) end
     ass:append(style .. request.text .. '\\N')
     ass:append('> ' .. before_cur)
     ass:append(cglyph)
@@ -272,8 +258,10 @@ local function maybe_exit()
 end
 
 local function handle_esc()
-    send_response(false, "exitted")
-    queue:pop()
+    coroutine.resume(co, {
+        line = nil,
+        err = "exited"
+    })
 end
 
 -- Run the current command and clear the line (Enter)
@@ -281,8 +269,9 @@ local function handle_enter()
     if request.history.list[#request.history.list] ~= line and line ~= "" then
         request.history.list[#request.history.list + 1] = line
     end
-    send_response(true)
-    queue:pop()
+    coroutine.resume(co, {
+        line = line
+    })
 end
 
 -- Go to the specified position in the command history
@@ -600,91 +589,92 @@ mp.observe_property('display-hidpi-scale', 'native', update)
 ----------------------------------------------------------------------------------------
 -------------------------------END ORIGINAL MPV CODE------------------------------------
 
+--[[
+    sends a response to the original script in the form of a json string
+    it is expected that all requests get a response, if the input is nil then err should say why
+    current error codes are:
+        exited          the user closed the input instead of pressing Enter
+        already_queued  a request with the specified id was already in the queue
+        cancelled       a script cancelled the request
+]]
+local function send_response(res)
+    if res.source then
+        mp.commandv("script-message-to", res.source, res.response, (utils.format_json(res)))
+    else
+        mp.commandv("script-message", res.response, (utils.format_json(res)))
+    end
+end
+
 -- push new request onto the queue
 -- if a request with the same id already exists and the queueable flag is not enabled then
 -- a nil result will be returned to the function
-function queue:push(req)
-    if self.active_ids[req.id] then
-
-        -- replace an existing request with the new one
-        if req.replace then
-            for i = 1, #self.queue do
-                if self.queue[i].id == req.id then
-                    send_response(false, "replaced", self.queue[i].response)
-                    self.queue[i] = req
-                    if i == 1 then request = req ; update() end
-                    return
-                end
-            end
-        end
-
-        --cancel the new request if it is not queueable
-        if not req.queueable then send_response(false, "already_queued", req.response) ; return end
+function push_request(req)
+    if active_ids[req.id] then
+        send_response{ err = "already_queued", response = req.response }
+        return
     end
 
-    table.insert(self.queue, req)
-    self.active_ids[req.id] = (self.active_ids[req.id] or 0) + 1
+    table.insert(queue, req)
+    active_ids[req.id] = true
+    if #queue == 1 then coroutine.resume(co) end
     update()
-    if #self.queue == 1 then return self:start_queue() end
-end
-
--- removes the first item in the queue and either continues or stops the queue
-function queue:pop()
-    self:remove(1)
-    clear()
-
-    if #self.queue < 1 then return self:stop_queue()
-    else return self:continue_queue() end
 end
 
 -- safely removes an item from the queue and updates the set of active requests
-function queue:remove(index)
-    local req = table.remove(self.queue, index)
-    self.active_ids[req.id] = self.active_ids[req.id] ~= 1 and self.active_ids[req.id] - 1 or nil
+function remove_request(index)
+    local req = table.remove(queue, index)
+    active_ids[req.id] = nil
+    return req
 end
 
-function queue:start_queue()
-    request = self.queue[1]
-    line = request.default_input
-    cursor = request.cursor_pos
-    set_active(true)
+--an infinite loop that moves through the request queue
+--uses a coroutine to handle asynchronous operations
+local function driver()
+    while (true) do
+        if #queue == 0 then coroutine.yield() end
+
+        while queue[1] do
+            local req = queue[1]
+            request = req
+            line = req.default_input
+            cursor = req.cursor_pos
+
+            if repl_active then update()
+            else set_active(true) end
+
+            res = coroutine.yield()
+            if res then
+                res.source, res.response = req.source, req.response
+                send_response(res)
+                remove_request(1)
+            end
+        end
+
+        set_active(false)
+    end
 end
 
-function queue:continue_queue()
-    request = self.queue[1]
-    line = request.default_input
-    cursor = request.cursor_pos
-    update()
-end
-
-function queue:stop_queue()
-    set_active(false)
-end
+co = coroutine.create(driver)
 
 -- removes all requests with the specified id from the queue
 mp.register_script_message("cancel-user-input", function(id)
-    local i = 2
-    while i <= #queue.queue do
-        if queue.queue[i].id == id then
-            send_response(false, "cancelled", queue.queue[i].response)
-            queue:remove(i)
-        else
-            i = i + 1
-        end
-    end
+    for i = #queue, 1, -1 do
+        if queue[i].id == id then
+            req = remove_request(i)
+            send_response{ err = "cancelled", response = req.response, source = req.source }
 
-    if queue.queue[1] and queue.queue[1].id == id then
-        send_response(false, "cancelled")
-        queue:pop()
+            --if we're removing the first item then that means the coroutine is waiting for a response
+            --we will need to tell the coroutine to resume, upon which it will move to the next request
+            if i == 1 then coroutine.resume(co) end
+        end
     end
 end)
 
 --the function that parses the input requests
-local function input_request(request)
-    local req = utils.parse_json(request)
-
+local function input_request(req)
     if not req.response then msg.error("input requests require a response string") ; return end
     if not req.id then msg.error("input requests require an id string") ; return end
+
     req.text = ass_escape(req.request_text or "")
     req.default_input = req.default_input or ""
     req.cursor_pos = req.cursor_pos or 1
@@ -701,15 +691,16 @@ local function input_request(request)
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
     req.history = histories[req.id]
 
-    queue:push(req)
+    push_request(req)
 end
 
 -- script message to recieve input requests, get-user-input.lua acts as an interface to call this script message
-mp.register_script_message("request-user-input", function(request)
-    msg.debug(request)
-    local success, err = pcall(input_request, request)
+mp.register_script_message("request-user-input", function(req)
+    msg.debug(req)
+    req = utils.parse_json(req)
+    local success, err = pcall(input_request, req)
     if not success then
-        send_response(nil, err, request.response)
+        send_response{ err = err, response = req.response, source = req.source}
         msg.error(err)
     end
 end)

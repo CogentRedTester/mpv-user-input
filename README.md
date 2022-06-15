@@ -38,9 +38,8 @@ Any additional arguments sent after the options table will be sent to fn as addi
 
 The following error codes currently exist:
 
-    exitted         the user closed the input instead of pressing Enter
+    exited         the user closed the input instead of pressing Enter
     already_queued  a request with the specified id was already in the queue
-    replaced        the request was replaced with a newer request
     cancelled       a script cancelled the request
 
 #### options
