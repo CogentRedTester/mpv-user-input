@@ -682,13 +682,13 @@ end)
 
 --the function that parses the input requests
 local function input_request(req)
-    if not req.version then return msg.error("input requests require an API version string") end
+    assert(req.version, "input requests require an API version string")
     if not string.find(req.version, API_MAJOR_MINOR, 1, true) then
-        return msg.error(("input request has invalid version: expected %s.x, got %s"):format(API_MAJOR_MINOR, req.version))
+        error(("input request has invalid version: expected %s.x, got %s"):format(API_MAJOR_MINOR, req.version))
     end
 
-    if not req.response then return msg.error("input requests require a response string") end
-    if not req.id then return msg.error("input requests require an id string") end
+    assert(req.response, "input requests require a response string")
+    assert(req.id, "input requests require an id string")
 
     req.text = ass_escape(req.request_text or "")
     req.default_input = req.default_input or ""
