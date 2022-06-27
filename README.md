@@ -95,7 +95,8 @@ The defined fields are:
 |---------------|---------|-------------------------------------------------------------------------------------------------------------------|
 | callback      | function| the callback function - same as `fn` passed to `get_user_input()` - can be set to a different function to modify the callback |
 | passthrough_args | table| an array of extra arguments to pass to the callback - cannot be `nil`                                             |
-| cancel        | method  | cancels the request - unlike `cancel_user_input()` this does not cancel all requests with a matching id |
+| pending       | boolean | true if the request is still pending, false if the request is completed                                           |
+| cancel        | method  | cancels the request - unlike `cancel_user_input()` this does not cancel all requests with a matching id           |
 
 A method is referring to a function that is called with Lua's method syntax:
 

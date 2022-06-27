@@ -42,12 +42,14 @@ function mod.get_user_input(fn, options, ...)
     local request = {
         uid = response_string,
         passthrough_args = pack(...),
-        callback = fn
+        callback = fn,
+        pending = true
     }
 
     -- create a callback for user-input to respond to
     mp.register_script_message(response_string, function(response)
         mp.unregister_script_message(response_string)
+        request.pending = false
 
         response = utils.parse_json(response)
         request.callback(response.line, response.err, unpack(request.passthrough_args, 1, request.passthrough_args.n or #request.passthrough_args))
