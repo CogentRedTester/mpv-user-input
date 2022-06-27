@@ -614,9 +614,9 @@ end
 function push_request(req)
     if active_ids[req.id] then
         if req.replace then
-            for i, request_item in ipairs(queue) do
-                if request_item.id == req.id then
-                    send_response{ err = "replaced", response = req.response, source = req.source }
+            for i, q_req in ipairs(queue) do
+                if q_req.id == req.id then
+                    send_response{ err = "replaced", response = q_req.response, source = q_req.source }
                     queue[i] = req
                     if i == 1 then request = req end
                 end
@@ -650,26 +650,24 @@ end
 --uses a coroutine to handle asynchronous operations
 local function driver()
     while (true) do
-        if #queue == 0 then coroutine.yield() end
-
         while queue[1] do
-            local req = queue[1]
-            request = req
-            line = req.default_input
-            cursor = req.cursor_pos
+            request = queue[1]
+            line = request.default_input
+            cursor = request.cursor_pos
 
             if repl_active then update()
             else set_active(true) end
 
             res = coroutine.yield()
             if res then
-                res.source, res.response = req.source, req.response
+                res.source, res.response = request.source, request.response
                 send_response(res)
                 remove_request(1)
             end
         end
 
         set_active(false)
+        coroutine.yield()
     end
 end
 
@@ -733,6 +731,7 @@ end
 -- updates the fields of a specific request
 mp.register_script_message("update-user-input/uid", function(uid, req_opts)
     req_opts = utils.parse_json(req_opts)
+    req_opts.response = uid
     for i, req in ipairs(queue) do
         if req.response == uid then
             local success, result = pcall(format_request_fields, req_opts)
