@@ -112,6 +112,22 @@ If no id is provided, then the default id for `get_user_input()` will be used.
 
 The cancellation happens asynchronously.
 
+### `get_user_input_co([options [, co_resume]])`
+
+This is a wrapper function around `get_user_input()` that uses [coroutines](https://www.lua.org/manual/5.1/manual.html#2.11)
+to make the input request behave synchronously. It returns `line, err`, as would
+normally be passed to the callback function.
+
+This function will yield the current coroutine and resume once the input
+response has been received. If the coroutine is forcibly resumed by the user then
+it will send a cancellation request to `user-input` and will return `nil, 'cancelled'`.
+The request object is passed to the yield function.
+
+If a function is passed as co_resume then custom resume behaviour can be setup instead
+of the default `coroutine.resume`.
+This function is passed `uid, line, err` where `uid` is a unique variable that needs to be
+passed to the resume. The functions created by `coroutine.wrap` will work.
+
 ## Examples
 
 The [examples](/examples) folder contains some scripts that make user of the API.

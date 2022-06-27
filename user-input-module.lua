@@ -13,6 +13,7 @@
 local API_VERSION = "0.1.0"
 
 local mp = require 'mp'
+local msg = require "mp.msg"
 local utils = require 'mp.utils'
 local mod = {}
 
@@ -68,6 +69,37 @@ function mod.get_user_input(fn, options, ...)
     })))
 
     return setmetatable(request, { __index = request_mt })
+end
+
+-- runs the request synchronously using coroutines
+-- takes the option table and an optional coroutine resume function
+function mod.get_user_input_co(options, co_resume)
+    local co, main = coroutine.running()
+    assert(not main and co, "get_user_input_co must be run from within a coroutine")
+
+    local uid = {}
+    local request = mod.get_user_input(function(line, err)
+        if co_resume then
+            co_resume(uid, line, err)
+        else
+            local success, er = coroutine.resume(co, uid, line, err)
+            if not success then
+                msg.warn(debug.traceback(co))
+                msg.error(er)
+            end
+        end
+    end, options)
+
+    -- if the uid was not sent then the coroutine was resumed by the user.
+    -- we will treat this as a cancellation request
+    local success, line, err = coroutine.yield(request)
+    if success ~= uid then
+        request:cancel()
+        request.callback = function() end
+        return nil, "cancelled"
+    end
+
+    return line, err
 end
 
 -- sends a request to cancel all input requests with the given id
