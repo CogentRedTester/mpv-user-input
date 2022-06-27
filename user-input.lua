@@ -611,9 +611,23 @@ end
 -- if a request with the same id already exists and the queueable flag is not enabled then
 -- a nil result will be returned to the function
 function push_request(req)
-    if active_ids[req.id] and not req.queueable then
-        send_response{ err = "already_queued", response = req.response }
-        return
+    if active_ids[req.id] then
+        if req.replace then
+            for i, request_item in ipairs(queue) do
+                if request_item.id == req.id then
+                    send_response{ err = "replaced", response = req.response, source = req.source }
+                    queue[i] = req
+                    if i == 1 then request = req end
+                end
+            end
+            update()
+            return
+        end
+
+        if not req.queueable then
+            send_response{ err = "already_queued", response = req.response, source = req.source }
+            return
+        end
     end
 
     table.insert(queue, req)

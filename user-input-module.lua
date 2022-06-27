@@ -65,7 +65,8 @@ function mod.get_user_input(fn, options, ...)
         request_text = ("[%s] %s"):format(options.source or name, options.request_text or options.text or "requesting user input:"),
         default_input = options.default_input,
         cursor_pos = options.cursor_pos,
-        queueable = options.queueable and true
+        queueable = options.queueable and true,
+        replace = options.replace and true
     })))
 
     return setmetatable(request, { __index = request_mt })
