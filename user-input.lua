@@ -660,10 +660,10 @@ end
 
 co = coroutine.create(driver)
 
--- removes all requests with the specified id from the queue
-mp.register_script_message("cancel-user-input", function(id)
+--cancels any input request that returns true for the given predicate function
+local function cancel_input_request(pred)
     for i = #queue, 1, -1 do
-        if queue[i].id == id then
+        if pred(i) then
             req = remove_request(i)
             send_response{ err = "cancelled", response = req.response, source = req.source }
 
@@ -678,6 +678,15 @@ mp.register_script_message("cancel-user-input", function(id)
             end
         end
     end
+end
+
+mp.register_script_message("cancel-user-input/uid", function(uid)
+    cancel_input_request(function(i) return queue[i].response == uid end)
+end)
+
+-- removes all requests with the specified id from the queue
+mp.register_script_message("cancel-user-input/id", function(id)
+    cancel_input_request(function(i) return queue[i].id == id end)
 end)
 
 --the function that parses the input requests

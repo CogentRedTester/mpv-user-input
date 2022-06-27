@@ -25,6 +25,13 @@ local function pack(...)
     return t
 end
 
+local request_mt = {}
+
+function request_mt:cancel()
+    assert(self.uid, "request object missing UID")
+    mp.commandv("script-message-to", "user_input", "cancel-user-input/uid", self.uid)
+end
+
 -- sends a request to ask the user for input using formatted options provided
 -- creates a script message to recieve the response and call fn
 function mod.get_user_input(fn, options, ...)
@@ -53,12 +60,18 @@ function mod.get_user_input(fn, options, ...)
         cursor_pos = options.cursor_pos,
         queueable = options.queueable and true
     })))
+
+    local request = {
+        uid = response_string
+    }
+
+    return setmetatable(request, { __index = request_mt })
 end
 
 -- sends a request to cancel all input requests with the given id
 function mod.cancel_user_input(id)
     id = name .. '/' .. (id or "")
-    mp.commandv("script-message-to", "user_input", "cancel-user-input", id)
+    mp.commandv("script-message-to", "user_input", "cancel-user-input/id", id)
 end
 
 return mod
