@@ -29,6 +29,31 @@ local request = nil
 
 local line = ''
 
+local counter = 1
+local function get_response_string()
+    local str = "__user_input_response/"..counter
+    counter = counter + 1
+    return str
+end
+
+local function trigger_event(event, t, cb)
+    if not request.events[event] then return end
+
+    if cb then
+        t.response = get_response_string()
+        mp.register_script_message(t.response, function(json, ...)
+            mp.unregister_script_message(t.response)
+            msg.debug("received event callback", t.response)
+
+            local res = json and utils.parse_json(json) or nil
+            cb(res, ...)
+        end)
+    end
+
+    local json = utils.format_json(t)
+    msg.debug("sending event message", event, json)
+    mp.commandv("script-message-to", request.source, request.events[event], json)
+end
 
 --[[
     The below code is a modified implementation of text input from mpv's console.lua:
@@ -343,6 +368,26 @@ local function next_word()
     update()
 end
 
+-- Complete the word at the cursor (TAB)
+local function complete()
+    local before_cur = line:sub(1, cursor - 1)
+    local after_cur = line:sub(cursor)
+    local req = request
+
+    local vals = {
+        before = before_cur,
+        after = after_cur
+    }
+    trigger_event("complete", vals, function(res)
+        if req ~= request then return end
+        if not res or not res.text then return end
+
+        line = line:sub(1, cursor - 1)..res.text..line:sub(cursor)
+        cursor = cursor + (res.cursor or res.text:len())
+        update()
+    end)
+end
+
 -- Move the cursor to the beginning of the line (HOME)
 local function go_home()
     cursor = 1
@@ -491,6 +536,8 @@ local function get_bindings()
         { 'alt+b',       prev_word                              },
         { 'ctrl+right',  next_word                              },
         { 'alt+f',       next_word                              },
+        { 'tab',         complete                               },
+        { 'ctrl+i',      complete                               },
         { 'ctrl+a',      go_home                                },
         { 'home',        go_home                                },
         { 'ctrl+e',      go_end                                 },
@@ -703,6 +750,11 @@ local function input_request(req)
 
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
     req.history = histories[req.id]
+
+    req.events = {}
+    if req.ontab then
+        req.events["complete"] = req.ontab
+    end
 
     push_request(req)
 end
