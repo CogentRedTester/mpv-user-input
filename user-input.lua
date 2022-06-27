@@ -598,6 +598,7 @@ mp.observe_property('display-hidpi-scale', 'native', update)
         exited          the user closed the input instead of pressing Enter
         already_queued  a request with the specified id was already in the queue
         cancelled       a script cancelled the request
+        replace         replaced by another request
 ]]
 local function send_response(res)
     if res.source then
@@ -703,8 +704,8 @@ mp.register_script_message("cancel-user-input/id", function(id)
     cancel_input_request(function(i) return queue[i].id == id end)
 end)
 
---the function that parses the input requests
-local function input_request(req)
+-- ensures a request has the correct fields and is correctly formatted
+local function format_request_fields(req)
     assert(req.version, "input requests require an API version string")
     if not string.find(req.version, API_MAJOR_MINOR, 1, true) then
         error(("input request has invalid version: expected %s.x, got %s"):format(API_MAJOR_MINOR, req.version))
@@ -726,7 +727,28 @@ local function input_request(req)
 
     if not histories[req.id] then histories[req.id] = {pos = 1, list = {}} end
     req.history = histories[req.id]
+    return req
+end
 
+-- updates the fields of a specific request
+mp.register_script_message("update-user-input/uid", function(uid, req_opts)
+    req_opts = utils.parse_json(req_opts)
+    for i, req in ipairs(queue) do
+        if req.response == uid then
+            local success, result = pcall(format_request_fields, req_opts)
+            if not success then return msg.error(result) end
+
+            queue[i] = result
+            if i == 1 then request = queue[1] end
+            update()
+            return
+        end
+    end
+end)
+
+--the function that parses the input requests
+local function input_request(req)
+    req = format_request_fields(req)
     push_request(req)
 end
 

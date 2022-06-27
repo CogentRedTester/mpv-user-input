@@ -28,9 +28,32 @@ end
 
 local request_mt = {}
 
+-- ensures the option tables are correctly formatted based on the input
+local function format_options(options, response_string)
+    return {
+        response = response_string,
+        version = API_VERSION,
+        id = name..'/'..(options.id or ""),
+        source = name,
+        request_text = ("[%s] %s"):format(options.source or name, options.request_text or options.text or "requesting user input:"),
+        default_input = options.default_input,
+        cursor_pos = options.cursor_pos,
+        queueable = options.queueable and true,
+        replace = options.replace and true
+    }
+end
+
+-- cancels the request
 function request_mt:cancel()
     assert(self.uid, "request object missing UID")
     mp.commandv("script-message-to", "user_input", "cancel-user-input/uid", self.uid)
+end
+
+-- updates the options for the request
+function request_mt:update(options)
+    assert(self.uid, "request object missing UID")
+    options = utils.format_json( format_options(options) )
+    mp.commandv("script-message-to", "user_input", "update-user-input/uid", self.uid, options)
 end
 
 -- sends a request to ask the user for input using formatted options provided
@@ -57,17 +80,8 @@ function mod.get_user_input(fn, options, ...)
     end)
 
     -- send the input command
-    mp.commandv("script-message-to", "user_input", "request-user-input", (utils.format_json({
-        version = API_VERSION,
-        id = name..'/'..(options.id or ""),
-        source = name,
-        response = response_string,
-        request_text = ("[%s] %s"):format(options.source or name, options.request_text or options.text or "requesting user input:"),
-        default_input = options.default_input,
-        cursor_pos = options.cursor_pos,
-        queueable = options.queueable and true,
-        replace = options.replace and true
-    })))
+    options = utils.format_json( format_options(options, response_string) )
+    mp.commandv("script-message-to", "user_input", "request-user-input", options)
 
     return setmetatable(request, { __index = request_mt })
 end

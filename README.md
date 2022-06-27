@@ -99,11 +99,15 @@ The defined fields are:
 | passthrough_args | table| an array of extra arguments to pass to the callback - cannot be `nil`                                             |
 | pending       | boolean | true if the request is still pending, false if the request is completed                                           |
 | cancel        | method  | cancels the request - unlike `cancel_user_input()` this does not cancel all requests with a matching id           |
+| update        | method  | takes an options table and updates the request - maintains the original request unlike the `replace` flag - not all options can be changed |
 
 A method is referring to a function that is called with Lua's method syntax:
 
 ```lua
 local request = input.get_user_input(print)
+request:update{
+    request_text = "hello world:"
+}
 request:cancel()
 ```
 
