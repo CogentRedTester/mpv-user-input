@@ -25,24 +25,41 @@ Create these directories if they do not exist. `~~/` represents the mpv config d
 What is important is that `user-input.lua` is loaded as a script my mpv, which can be done from anywhere using the `--script` option.
 Meanwhile, `user-input-module.lua` needs to be in one of the lua package paths; scripts that use this API are recommended to use `~~/script-modules/`, but you can set any directory using the `LUA_PATH` environment variable.
 
+### Developers
+
+If you use the recommended `~~/script-modules/` directory then load this addon with the following code:
+
+```lua
+package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"})..package.path
+local input = require "user-input-module"
+```
+
 ## Interface Functions - v0.1.0
 
 Note: this API is still in its early stages, so these functions may change.
 
 ### `get_user_input(fn [, options [, ...]])`
 
-Requests user input and calls `fn` when this script sends a response.
-The first argument will be the input string the user entered, the second argument will be an error string if the input is `nil`.
+Requests input from the user and returns a request table.
 
+```lua
+input.get_user_input(print) -- prints the user input plus the error code
+```
+
+`fn` is called when user-input sends a response, the first argument will be the input string the user entered,
+the second argument will be an error string if the input is `nil`.
 Any additional arguments sent after the options table will be sent to fn as additional arguments after the error string.
 
 The following error codes currently exist:
 
+```properties
     exited          the user closed the input instead of pressing Enter
     already_queued  a request with the specified id was already in the queue
-    cancelled       a script cancelled the request
+    cancelled       the request was cancelled 
+```
 
-If the request throws an error for whatever reason then the error message will be returned instead.
+If the request throws an error for whatever reason then that Lua error message will be returned instead.
+Those error messages are undefined and could change at any time.
 
 #### options
 
@@ -51,7 +68,7 @@ The following options are currently available:
 
 | name          | type    | default                   | description                                                                                                       |
 |---------------|---------|---------------------------|-------------------------------------------------------------------------------------------------------------------|
-| id            | string  | mp.get_script_name()..`/` | used for storing input history and detecting duplicate requests -                                                 |
+| id            | string  | mp.get_script_name()..`/` | used for storing input history and detecting duplicate requests                                                   |
 | source        | string  | mp.get_script_name()      | used to show the source of the request in square brackets                                                         |
 | request_text  | string  | `requesting user input:`  | printed above the input box - use it to describe the input request                                                |
 | default_input | string  |                           | text to pre-enter into the input                                                                                  |
@@ -61,13 +78,38 @@ The following options are currently available:
 The function prepends the script name to any id to avoid conflicts, but the actual script has no way to determining where the requests come from,
 so make sure that the function is used.
 
-The `replace` flag has been removed in an effort to simplify the backend of the script.
-To replicate `replace` you can use `cancel_user_input` before making the request.
+Here is an example for printing only a sucessful input:
+
+```lua
+input.get_user_input(function(line, err)
+        if line then print(line) end
+    end, { request_text = "print text:" })
+```
+
+#### request table
+
+The request table returned by `get_user_input` can be used to modify the behaviour of an existing request.
+The defined fields are:
+
+| name          | type    | description                                                                                                       |
+|---------------|---------|-------------------------------------------------------------------------------------------------------------------|
+| callback      | function| the callback function - same as `fn` passed to `get_user_input()` - can be set to a different function to modify the callback |
+| passthrough_args | table| an array of extra arguments to pass to the callback - cannot be `nil`                                             |
+| cancel        | method  | cancels the request - unlike `cancel_user_input()` this does not cancel all requests with a matching id |
+
+A method is referring to a function that is called with Lua's method syntax:
+
+```lua
+local request = input.get_user_input(print)
+request:cancel()
+```
 
 ### `cancel_user_input([id])`
 
 Removes all input requests with a matching string id.
 If no id is provided, then the default id for `get_user_input()` will be used.
+
+The cancellation happens asynchronously.
 
 ## Examples
 
