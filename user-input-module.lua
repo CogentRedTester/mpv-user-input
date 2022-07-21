@@ -76,7 +76,7 @@ function mod.get_user_input(fn, options, ...)
         request.pending = false
 
         response = utils.parse_json(response)
-        request.callback(response.line, response.err, unpack(request.passthrough_args, 1, request.passthrough_args.n or #request.passthrough_args))
+        request.callback(response.line, response.err, unpack(request.passthrough_args, 1, request.passthrough_args.n))
     end)
 
     -- send the input command
