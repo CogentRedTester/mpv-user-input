@@ -74,11 +74,12 @@ The following options are currently available:
 | request_text  | string  | `requesting user input:`  | printed above the input box - use it to describe the input request                                                |
 | default_input | string  |                           | text to pre-enter into the input                                                                                  |
 | cursor_pos    | number  | 1                         | the numerical position to place the cursor - for use with the default_input field                                 |
-| queueable     | boolean | false                     | allows request to be queued even if there is already one queued with the same id                                  |
-| replace       | boolean | false                     | replace all queued requests with the same id with the new request                                                 |
+| queueable     | boolean | false                     | allows requests to be queued even if there is already one queued with the same id                                 |
+| replace       | boolean | false                     | replace the queued request with the same id with the new request                                                      |
 
-The function prepends the script name to any id to avoid conflicts, but the actual script has no way to determining where the requests come from,
-so make sure that the function is used.
+The function prepends the script name to any id to avoid conflicts between
+different scripts.
+Do not use both the `queuable` and `replace` flags for input requests with the same ID, the behaviour is undefined and may change at any time.
 
 Here is an example for printing only a sucessful input:
 
