@@ -130,10 +130,56 @@ response has been received. If the coroutine is forcibly resumed by the user the
 it will send a cancellation request to `user-input` and will return `nil, 'cancelled'`.
 The request object is passed to the yield function.
 
-If a function is passed as co_resume then custom resume behaviour can be setup instead
-of the default `coroutine.resume`.
-This function is passed `uid, line, err` where `uid` is a unique variable that needs to be
-passed to the resume. The functions created by `coroutine.wrap` will work.
+```lua
+local function main()
+    local line, err = input.get_user_input_co({ request_text = 'test input:' })
+    if line then print(line) end
+end
+
+local co = coroutine.create(main)
+local success, request = coroutine.resume(co)
+```
+
+If a function is passed as `co_resume` then custom resume behaviour can be setup instead
+of the default `coroutine.resume`. This can be useful if you want to define what happens when an error is thrown.
+This function is the equivalent of the usual callback function, except it's purpose is to resume
+the yielded coroutine and that it has three agruments:
+`uid, line, err` where `uid` is a unique variable that needs to be
+passed to `coroutine.resume()`. The functions created by `coroutine.wrap()` can be passed into here.
+The following examples show how this can be used to propogate errors using `coroutine.wrap()`,
+and how to safely catch and print errors using a custom error handler.
+
+```lua
+-- if an error is thrown the script will crash instead of the error being caught
+local driver
+driver = coroutine.wrap(function()
+    local line, err = input.get_user_input_co({ request_text = 'test input:' }, driver)
+    if line then print(line) end
+end)
+
+local request = driver()
+```
+
+```lua
+-- if the coroutine throws an error it is caught and a stack trace is printed
+-- note that the error handler shown here is actually what is used by default when `co_resume` is nil
+function coroutine_resume_err(uid, line, err)
+    local co = coroutine.running()
+    local success, err = coroutine.resume(co, uid, line, err)
+    if not success then
+        msg.warn( debug.traceback(co) )
+        msg.error(err)
+    end
+end
+
+local function main()
+    local line, err = input.get_user_input_co({ request_text = 'test input:' }, coroutine_resume_err)
+    if line then print(line) end
+end
+
+local co = coroutine.create(main)
+local success, request = coroutine.resume(co)
+```
 
 ## Examples
 
