@@ -13,6 +13,8 @@ If a script does choose to load the module, then I recommend it be loaded from `
 
 The aim of this script is that it be seamless enough that it could be added to mpv player officially.
 
+For versions of mpv ≤ v0.36 see the [mpv-v0.36 branch](https://github.com/CogentRedTester/mpv-user-input/tree/mpv-v0.36).
+
 ## Installation
 
 **If you've been directed here by another script that requires this API follow these instructions unless told otherwise.**
