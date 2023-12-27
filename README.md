@@ -186,3 +186,5 @@ local success, request = coroutine.resume(co)
 ## Examples
 
 The [examples](/examples) folder contains some scripts that make user of the API.
+
+You can find more examples in the [wiki page](https://github.com/CogentRedTester/mpv-user-input/wiki/Scripts-that-use-mpv%E2%80%90user%E2%80%90input).
