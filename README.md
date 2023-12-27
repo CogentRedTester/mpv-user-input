@@ -186,3 +186,5 @@ local success, request = coroutine.resume(co)
 ## Examples
 
 The [examples](/examples) folder contains some scripts that make user of the API.
+
+Also, the [mpv-rename](https://github.com/Kayizoku/mpv-rename?tab=readme-ov-file) script serves as a straightforward example of utilizing the mpv-user-input API.
